@@ -1,8 +1,8 @@
-package com.matrix2121.cryptotrade.holdings;
+package com.matrix2121.cryptotrade.portfolio;
 
 import java.math.BigDecimal;
 
-public record HoldingsModel(
+public record AssetModel(
 	Long id,
 	String cryptoCode,
 	BigDecimal cryptoAmount,
