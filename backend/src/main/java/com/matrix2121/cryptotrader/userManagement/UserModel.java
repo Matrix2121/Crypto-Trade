@@ -3,7 +3,7 @@ package com.matrix2121.cryptotrader.userManagement;
 import java.math.BigDecimal;
 
 public record UserModel(
-	long id,
+	Long id,
 	String username,
 	BigDecimal balance) {
 }
