@@ -1,10 +1,10 @@
-package com.matrix2121.cryptotrader;
+package com.matrix2121.cryptotrade;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class CryptotraderApplicationTests {
+class CryptotradeApplicationTests {
 
 	@Test
 	void contextLoads() {

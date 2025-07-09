@@ -9,10 +9,10 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.matrix2121.</groupId>
-	<artifactId>cryptotrader</artifactId>
+	<artifactId>cryptotrade</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>cryptotrader</name>
-	<description>Crypto Trader</description>
+	<name>cryptotrade</name>
+	<description>Crypto trade</description>
 	<url/>
 	<licenses>
 		<license/>
