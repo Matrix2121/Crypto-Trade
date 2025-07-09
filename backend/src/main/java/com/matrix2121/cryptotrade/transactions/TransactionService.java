@@ -15,17 +15,15 @@ public class TransactionService {
     private TransactionDao transactionDao;
 
     public List<TransactionShortDto> getTransactionsByUserId(Long userId) {
-        List<TransactionModel> assetModelList = transactionDao.findTransactionsByUserId(userId);
-        return assetModelList.stream()
+        List<TransactionModel> transactionModelList = transactionDao.findTransactionsByUserId(userId);
+        return transactionModelList.stream()
             .map(TransactionMapper::mapToTransactionShortDto)
             .toList();
     }
 
     public TransactionLongDto getTransactionByTransactionId(Long transactionId) {
-        List<TransactionModel> assetModelList = transactionDao.findTransactionByTransactionId(usertransactionIdId);
-        return assetModelList.stream()
-            .map(TransactionMapper::mapToTransactionLongDto)
-            .toList();
+        TransactionModel transactionModel = transactionDao.findTransactionByTransactionId(transactionId);
+        return TransactionMapper.mapToTransactionLongDto(transactionModel);
     }
 
 }
