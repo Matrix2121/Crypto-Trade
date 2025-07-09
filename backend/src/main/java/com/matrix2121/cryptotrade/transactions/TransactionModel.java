@@ -3,7 +3,7 @@ package com.matrix2121.cryptotrade.transactions;
 import java.math.BigDecimal;
 import java.time.Instant;
 
-public record TransactionsModel(
+public record TransactionModel(
         Long id,
         String cryptoCode,
         BigDecimal unitPrice,
