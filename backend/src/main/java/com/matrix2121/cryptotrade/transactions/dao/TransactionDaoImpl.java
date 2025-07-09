@@ -26,10 +26,9 @@ public class TransactionDaoImpl implements TransactionDao {
 
     @Override
     public TransactionModel findTransactionByTransactionId(Long transactionId){
-        return jdbcTemplate.queryForStream(
+        return jdbcTemplate.queryForObject(
             "SELECT * FROM get_transaction_by_transaction_id(?)", 
             TransactionMapper.mapToTransactionModel(), 
-            transactionId)
-            .toList();
+            transactionId);
     }
 }

@@ -14,13 +14,13 @@ public class TransactionController {
     @Autowired
     private TransactionService transactionService;
 
-    @GetMapping("/{userId}")
-    public List<TransactionShortDto> getShortTransactionsByUserId(@PathVariable Long userId) {
-        return transactionService.getShortTransactionsByUserId(userId);
+    @GetMapping("all/{userId}")
+    public List<TransactionShortDto> getTransactionsByUserId(@PathVariable Long userId) {
+        return transactionService.getTransactionsByUserId(userId);
     }
 
-    @GetMapping("/{userId}")
-    public TransactionLongDto getLongTransactionByTransactionId(@PathVariable Long transactionId) {
-        return transactionService.getLongTransactionByTransactionId(transactionId);
+    @GetMapping("single/{transactionId}")
+    public TransactionLongDto getTransactionByTransactionId(@PathVariable Long transactionId) {
+        return transactionService.getTransactionByTransactionId(transactionId);
     }
 }
