@@ -14,8 +14,9 @@ public class AssetDaoImpl implements AssetDao {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
-
-    public List<AssetModel> findAssetsByUserId(long userId) {
+    
+    @Override
+    public List<AssetModel> findAssetsByUserId(Long userId) {
         return jdbcTemplate.queryForStream(
             "SELECT * FROM get_assets_by_user_id(?)", 
             AssetMapper.mapToAssetModel(), 

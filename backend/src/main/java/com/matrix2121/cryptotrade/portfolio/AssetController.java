@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/assets")
-public class AssetsController {
+public class AssetController {
 
     @Autowired
     private AssetService assetService;
