@@ -10,14 +10,14 @@ import com.matrix2121.cryptotrade.holdings.HoldingsModel;
 import java.util.List;
 
 @Repository
-public class HoldingsDaoImpl {
+public class HoldingsDaoImpl implements HoldingsDao {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
     public List<HoldingsModel> findByUserId(long userId) {
         return jdbcTemplate.queryForStream(
-            "SELECT * FROM get_portfolio_by_id(?)", 
+            "SELECT * FROM get_holdings_by_user_id(?)", 
             HoldingsMapper.mapToModel(), 
             userId)
             .toList();

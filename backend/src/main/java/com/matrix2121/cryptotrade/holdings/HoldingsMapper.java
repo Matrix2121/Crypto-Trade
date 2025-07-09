@@ -13,8 +13,9 @@ public class HoldingsMapper {
 
     public static RowMapper<HoldingsModel> mapToModel(){
         return (rs, i) -> new HoldingsModel(
-            rs.getLong("user_id"),
+            rs.getLong("id"),
             rs.getString("crypto_code"),
-            rs.getBigDecimal("crypto_amount"), i);
+            rs.getBigDecimal("crypto_amount"),
+            rs.getLong("user_id"));
     }
 }

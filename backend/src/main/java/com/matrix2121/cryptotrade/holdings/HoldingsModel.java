@@ -6,5 +6,5 @@ public record HoldingsModel(
 	Long id,
 	String cryptoCode,
 	BigDecimal cryptoAmount,
-	long userId) {
+	Long userId) {
 }

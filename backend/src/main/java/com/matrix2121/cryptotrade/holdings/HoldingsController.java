@@ -13,7 +13,7 @@ public class HoldingsController {
     private HoldingsService service;
 
     @GetMapping("/{userId}")
-    public List<HoldingsDto> getHoldings(@PathVariable Long userId) {
+    public List<HoldingsDto> getHoldingsByUserId(@PathVariable Long userId) {
         return service.getHoldingsByUserId(userId);
     }
 }
