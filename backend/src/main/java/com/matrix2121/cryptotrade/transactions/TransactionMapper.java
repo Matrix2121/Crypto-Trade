@@ -1,7 +1,5 @@
 package com.matrix2121.cryptotrade.transactions;
 
-import java.time.OffsetDateTime;
-
 import org.springframework.jdbc.core.RowMapper;
 
 import com.matrix2121.cryptotrade.transactions.dtos.*;
@@ -37,7 +35,7 @@ public class TransactionMapper {
             rs.getBigDecimal("crypto_amount"),
             rs.getBigDecimal("local_currency_amount"),
             rs.getBoolean("is_purchase"),
-            rs.getObject("trade_timestamp", OffsetDateTime.class).toInstant(),
+            rs.getTimestamp("trade_timestamp").toInstant(),
             rs.getLong("user_id"));
     }
 }
