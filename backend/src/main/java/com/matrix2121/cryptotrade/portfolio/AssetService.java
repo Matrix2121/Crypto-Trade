@@ -16,10 +16,10 @@ public class AssetService {
     private AssetDao assetDao;
 
     public List<AssetDto> getAssetsByUserId(Long userId) {
-        List<AssetModel> assetModelList = assetDao.findAssetsByUserId(userId);
+        List<AssetModel> assetModelList = assetDao.getAssetsByUserId(userId);
         return assetModelList.stream()
-            .map(AssetMapper::mapToAssetDto)
-            .toList();
+                .map(AssetMapper::mapToAssetDto)
+                .toList();
     }
 
 }

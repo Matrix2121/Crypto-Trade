@@ -14,13 +14,13 @@ public class AssetDaoImpl implements AssetDao {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
-    
+
     @Override
-    public List<AssetModel> findAssetsByUserId(Long userId) {
+    public List<AssetModel> getAssetsByUserId(Long userId) {
         return jdbcTemplate.queryForStream(
-            "SELECT * FROM get_assets_by_user_id(?)", 
-            AssetMapper.mapToAssetModel(), 
-            userId)
-            .toList();
+                "SELECT * FROM get_assets_by_user_id(?)",
+                AssetMapper.mapToAssetModel(),
+                userId)
+                .toList();
     }
 }
