@@ -17,4 +17,8 @@ public class UserService {
                 .map(UserMapper::mapToUserDto)
                 .orElse(null);
     }
+
+    public Boolean resetUserByUserId(Long userId){
+        return userDao.resetUserByUserId(userId);
+    }
 }
