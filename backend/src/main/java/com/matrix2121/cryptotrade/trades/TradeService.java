@@ -15,11 +15,11 @@ public class TradeService {
 
     @Transactional
     public TradeDto sellCrypto(Long userId, AssetDto assetDto){
-        return tradeDao.sellCrypto(userId, assetDto, 12);
+        return tradeDao.sellCrypto(userId, assetDto.cryptoCode(), assetDto.cryptoAmount(),, 12);
     }
 
     @Transactional
     public TradeDto buyCrypto(Long userId, AssetDto assetDto){
-        return tradeDao.buyCrypto(userId, assetDto, 12);
+        return tradeDao.buyCrypto(userId, assetDto.cryptoCode(), assetDto.cryptoAmount(), 12);
     }
 }
