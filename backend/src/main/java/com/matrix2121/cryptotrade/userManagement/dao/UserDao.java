@@ -7,4 +7,5 @@ import com.matrix2121.cryptotrade.userManagement.dtos.UserLoginDto;
 
 public interface UserDao {
     public Optional<UserModel> getUserByUsername(UserLoginDto userLoginDto);
+    public Boolean resetUserByUserId(Long userId);
 }

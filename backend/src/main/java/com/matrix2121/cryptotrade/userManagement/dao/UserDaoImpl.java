@@ -24,4 +24,11 @@ public class UserDaoImpl implements UserDao {
                 userLoginDto.username()));
     }
 
+    @Override
+    public Boolean resetUserByUserId(Long userId) {
+        return jdbcTemplate.queryForObject(
+            "select * from reset_user_by_id(?)",
+            Boolean.class,
+            userId);
+    }
 }
