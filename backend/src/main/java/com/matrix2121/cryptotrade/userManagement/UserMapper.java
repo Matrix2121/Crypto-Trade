@@ -9,14 +9,12 @@ public class UserMapper {
     public static UserDto mapToUserDto(UserModel userModel) {
         return new UserDto(
                 userModel.id(),
-                userModel.username(),
-                userModel.balance());
+                userModel.username());
     }
 
     public static RowMapper<UserModel> mapToUserModel() {
         return (rs, i) -> new UserModel(
                 rs.getLong("id"),
-                rs.getString("username"),
-                rs.getBigDecimal("balance"));
+                rs.getString("username"));
     }
 }
