@@ -1,8 +1,8 @@
-package com.matrix2121.cryptotrade.portfolio;
+package com.matrix2121.cryptotrade.trades.dtos;
 
 import java.math.BigDecimal;
 
-public record AssetDto(
+public record TradeRequestDto(
         String cryptoCode,
         BigDecimal cryptoAmount) {
 }
