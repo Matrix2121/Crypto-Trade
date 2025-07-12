@@ -1,11 +1,10 @@
 package com.matrix2121.cryptotrade.trades;
 
-import java.math.BigDecimal;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.matrix2121.cryptotrade.context.CryptoPricesContext;
 import com.matrix2121.cryptotrade.trades.dao.TradeDao;
 import com.matrix2121.cryptotrade.trades.dtos.*;
 
@@ -17,11 +16,11 @@ public class TradeService {
 
     @Transactional
     public TradeResponseDto sellCrypto(Long userId, TradeRequestDto tradeRequestDto){
-        return tradeDao.sellCrypto(userId, tradeRequestDto.cryptoCode(), tradeRequestDto.cryptoAmount(), BigDecimal.valueOf(12));
+        return tradeDao.sellCrypto(userId, tradeRequestDto.cryptoCode(), tradeRequestDto.cryptoAmount(), CryptoPricesContext.getBid(tradeRequestDto.cryptoCode()));
     }
 
     @Transactional
     public TradeResponseDto buyCrypto(Long userId, TradeRequestDto tradeRequestDto){
-        return tradeDao.buyCrypto(userId, tradeRequestDto.cryptoCode(), tradeRequestDto.cryptoAmount(), BigDecimal.valueOf(12));
+        return tradeDao.buyCrypto(userId, tradeRequestDto.cryptoCode(), tradeRequestDto.cryptoAmount(), CryptoPricesContext.getAsk(tradeRequestDto.cryptoCode()));
     }
 }

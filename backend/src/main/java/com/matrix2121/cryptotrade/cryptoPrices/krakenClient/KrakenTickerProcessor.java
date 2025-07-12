@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.matrix2121.cryptotrade.context.CryptoPricesContext;
 import com.matrix2121.cryptotrade.cryptoPrices.krakenClient.model.PriceTick;
 import com.matrix2121.cryptotrade.cryptoPrices.krakenClient.model.TickerFrame;
 
@@ -26,6 +27,7 @@ public class KrakenTickerProcessor {
                 JsonNode tickerData = root.withArray("data").get(0);
                 TickerFrame tickerFrame = mapper.treeToValue(tickerData, TickerFrame.class);
                 PriceTick priceTick = CryptoModelsMapper.mapTickerFrameToPriceTick(tickerFrame);
+                updateContext(priceTick);
                 broadcastPriceTick(priceTick);
             }
         } catch (Exception e) {
@@ -34,7 +36,11 @@ public class KrakenTickerProcessor {
     }
 
     private boolean isTickerUpdate(JsonNode root) {
-        return "ticker".equals(root.path("channel").asText()) && "update".equals(root.path("type").asText());
+        return "ticker".equals(root.path("channel").asText()) && ("update".equals(root.path("type").asText()) || "snapshot".equals(root.path("type").asText()));
+    }
+
+    private void updateContext(PriceTick priceTick){
+        CryptoPricesContext.setPrices(priceTick.symbol(), priceTick.bid(), priceTick.ask());
     }
 
     private void broadcastPriceTick(PriceTick priceTick) {
