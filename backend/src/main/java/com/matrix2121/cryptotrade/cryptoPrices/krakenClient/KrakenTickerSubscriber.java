@@ -1,0 +1,34 @@
+package com.matrix2121.cryptotrade.cryptoPrices.krakenClient;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import java.net.http.WebSocket;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.stereotype.Service;
+
+@Service
+public class KrakenTickerSubscriber {
+    private final String[] SYMBOLS = {
+        "BTC/USD", "ETH/USD", "XRP/USD", "USDT/USD", "BNB/USD",
+        "SOL/USD", "USDC/USD", "DOGE/USD", "TRX/USD", "ADA/USD",
+        "HYPE/USD", "SUI/USD", "XLM/USD", "LINK/USD", "BCH/USD",
+        "AVAX/USD", "HBAR/USD", "LEO/USD", "AHIB/USD", "TON/USD"
+    };
+    private final ObjectMapper mapper = new ObjectMapper().registerModule(new JavaTimeModule());
+
+    public void subscribe(WebSocket webSocket) {
+        var subscription = Map.of(
+            "method", "subscribe",
+            "params", Map.of("channel", "ticker", "symbol", List.of(SYMBOLS))
+        );
+        try {
+            webSocket.sendText(mapper.writeValueAsString(subscription), true);
+        } catch (JsonProcessingException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+    }
+}
