@@ -25,7 +25,7 @@ public class KrakenTickerProcessor {
             if (isTickerUpdate(root)) {
                 JsonNode tickerData = root.withArray("data").get(0);
                 TickerFrame tickerFrame = mapper.treeToValue(tickerData, TickerFrame.class);
-                PriceTick priceTick = mapToPriceTick(tickerFrame);
+                PriceTick priceTick = CryptoModelsMapper.mapTickerFrameToPriceTick(tickerFrame);
                 broadcastPriceTick(priceTick);
             }
         } catch (Exception e) {
@@ -35,10 +35,6 @@ public class KrakenTickerProcessor {
 
     private boolean isTickerUpdate(JsonNode root) {
         return "ticker".equals(root.path("channel").asText()) && "update".equals(root.path("type").asText());
-    }
-
-    private PriceTick mapToPriceTick(TickerFrame tickerFrame) {
-        return CryptoModelsMapper.mapTickerFrameToPriceTick(tickerFrame);
     }
 
     private void broadcastPriceTick(PriceTick priceTick) {
