@@ -7,6 +7,5 @@ public record PriceTick(
         String symbol,
         BigDecimal ask,
         BigDecimal bid,
-        BigDecimal last,
         Instant timestamp) {
 }

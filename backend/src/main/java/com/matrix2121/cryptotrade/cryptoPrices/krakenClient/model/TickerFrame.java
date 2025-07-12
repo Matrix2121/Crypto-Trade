@@ -6,6 +6,5 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 public record TickerFrame(
         String symbol,
         String ask,
-        String bid,
-        String last) {
+        String bid) {
 }
