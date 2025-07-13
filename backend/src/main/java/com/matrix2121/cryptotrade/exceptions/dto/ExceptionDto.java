@@ -1,4 +1,4 @@
-package com.matrix2121.cryptotrade.exceptions;
+package com.matrix2121.cryptotrade.exceptions.dto;
 
 import java.util.Date;
 

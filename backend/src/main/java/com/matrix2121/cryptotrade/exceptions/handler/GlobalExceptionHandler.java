@@ -1,4 +1,4 @@
-package com.matrix2121.cryptotrade.exceptions;
+package com.matrix2121.cryptotrade.exceptions.handler;
 
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
@@ -6,6 +6,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.context.request.WebRequest;
+
+import com.matrix2121.cryptotrade.exceptions.dto.ExceptionDto;
+import com.matrix2121.cryptotrade.exceptions.*;
 
 import java.util.Date;
 
@@ -20,6 +23,12 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(NoAssetsException.class)
     public ResponseEntity<ExceptionDto> handleNoAssetsException(NoAssetsException ex, WebRequest request) {
+        ExceptionDto exceptionDto = new ExceptionDto(new Date(), ex.getMessage(), request.getDescription(false));
+        return new ResponseEntity<>(exceptionDto, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(NoTransasctionsException.class)
+    public ResponseEntity<ExceptionDto> handleNoTransasctionsException(NoTransasctionsException ex, WebRequest request) {
         ExceptionDto exceptionDto = new ExceptionDto(new Date(), ex.getMessage(), request.getDescription(false));
         return new ResponseEntity<>(exceptionDto, HttpStatus.NOT_FOUND);
     }
