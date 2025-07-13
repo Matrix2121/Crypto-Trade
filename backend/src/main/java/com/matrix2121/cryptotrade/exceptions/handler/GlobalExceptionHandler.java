@@ -35,6 +35,12 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(exceptionDto, HttpStatus.NOT_FOUND);
     }
 
+    @ExceptionHandler(CryptoNameException.class)
+    public ResponseEntity<ExceptionDto> handleCryptoNameException(CryptoNameException ex, WebRequest request) {
+        ExceptionDto exceptionDto = new ExceptionDto(new Date(), ex.getMessage(), request.getDescription(false));
+        return new ResponseEntity<>(exceptionDto, HttpStatus.NOT_FOUND);
+    }
+
     @ExceptionHandler(DataAccessException.class)
     public ResponseEntity<ExceptionDto> handleDataAccessException(DataAccessException ex, WebRequest request) {
         return(dataBaseExceptionHandler(ex, request));
