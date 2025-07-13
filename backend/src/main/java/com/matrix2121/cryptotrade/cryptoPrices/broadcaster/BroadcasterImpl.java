@@ -11,6 +11,9 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @Component
 public class BroadcasterImpl extends TextWebSocketHandler implements Broadcaster{
     private final Set<WebSocketSession> sessions = ConcurrentHashMap.newKeySet();
@@ -30,9 +33,9 @@ public class BroadcasterImpl extends TextWebSocketHandler implements Broadcaster
         for (WebSocketSession session : sessions) {
             if (session.isOpen()) {
                 try {
-                    session.sendMessage(message);
+                    session.sendMessage(new TextMessage("{\"type\":\"error\",\"message\":\"Connection issue. Please refresh.\"}"));
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    log.error(e.getMessage());
                 }
             }
         }
