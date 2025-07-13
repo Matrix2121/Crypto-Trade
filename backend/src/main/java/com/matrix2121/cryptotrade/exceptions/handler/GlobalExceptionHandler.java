@@ -1,5 +1,7 @@
 package com.matrix2121.cryptotrade.exceptions.handler;
 
+import org.postgresql.util.PSQLException;
+import org.postgresql.util.ServerErrorMessage;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -35,7 +37,35 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(DataAccessException.class)
     public ResponseEntity<ExceptionDto> handleDataAccessException(DataAccessException ex, WebRequest request) {
-        ExceptionDto exceptionDto = new ExceptionDto(new Date(), "An error occurred while accessing the database", request.getDescription(false));
-        return new ResponseEntity<>(exceptionDto, HttpStatus.INTERNAL_SERVER_ERROR);
+        return(dataBaseExceptionHandler(ex, request));
+    }
+
+    private ResponseEntity<ExceptionDto> dataBaseExceptionHandler(DataAccessException ex, WebRequest request){
+        Throwable rootCause = ex.getMostSpecificCause();
+        HttpStatus status = HttpStatus.INTERNAL_SERVER_ERROR;
+        String cleanMessage = "A database error occurred.";
+
+        if (rootCause instanceof PSQLException psqlEx) {
+            ServerErrorMessage serverError = psqlEx.getServerErrorMessage();
+            if (serverError != null && serverError.getMessage() != null) {
+                cleanMessage = serverError.getMessage();
+            }
+        } else if (rootCause != null) {
+             String fullMessage = rootCause.getMessage();
+             if (fullMessage != null) {
+                cleanMessage = fullMessage.split("\n")[0];
+             }
+        }
+
+        if (cleanMessage.startsWith("Insufficient funds") || cleanMessage.startsWith("Insufficient crypto")) {
+            status = HttpStatus.BAD_REQUEST;
+        } else if (cleanMessage.contains("not found")) {
+            status = HttpStatus.NOT_FOUND;
+        } else if (cleanMessage.contains("must be positive")) {
+            status = HttpStatus.BAD_REQUEST;
+        }
+
+        ExceptionDto errorDetails = new ExceptionDto(new Date(), cleanMessage, request.getDescription(false));
+        return new ResponseEntity<>(errorDetails, status);
     }
 }
