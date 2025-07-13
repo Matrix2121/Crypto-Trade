@@ -1,5 +1,6 @@
 package com.matrix2121.cryptotrade.exceptions;
 
+import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -15,5 +16,17 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ExceptionDto> handleUserNotFoundException(UserNotFoundException ex, WebRequest request) {
         ExceptionDto exceptionDto = new ExceptionDto(new Date(), ex.getMessage(), request.getDescription(false));
         return new ResponseEntity<>(exceptionDto, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(NoAssetsException.class)
+    public ResponseEntity<ExceptionDto> handleNoAssetsException(NoAssetsException ex, WebRequest request) {
+        ExceptionDto exceptionDto = new ExceptionDto(new Date(), ex.getMessage(), request.getDescription(false));
+        return new ResponseEntity<>(exceptionDto, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(DataAccessException.class)
+    public ResponseEntity<ExceptionDto> handleDataAccessException(DataAccessException ex, WebRequest request) {
+        ExceptionDto exceptionDto = new ExceptionDto(new Date(), "An error occurred while accessing the database", request.getDescription(false));
+        return new ResponseEntity<>(exceptionDto, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 }
