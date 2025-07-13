@@ -30,9 +30,9 @@ public class BroadcasterImpl extends TextWebSocketHandler implements Broadcaster
         for (WebSocketSession session : sessions) {
             if (session.isOpen()) {
                 try {
-                    session.sendMessage(message);
-                } catch (IOException e) {
-                    e.printStackTrace();
+                    session.sendMessage(new TextMessage("{\"type\":\"error\",\"message\":\"Connection issue. Please refresh.\"}"));
+                } catch (IOException ignored) {
+                    // Do nothing if even that fails
                 }
             }
         }
