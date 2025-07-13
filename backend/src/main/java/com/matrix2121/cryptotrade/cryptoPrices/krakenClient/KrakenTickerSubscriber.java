@@ -3,12 +3,16 @@ package com.matrix2121.cryptotrade.cryptoPrices.krakenClient;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+
+import lombok.extern.slf4j.Slf4j;
+
 import java.net.http.WebSocket;
 import java.util.List;
 import java.util.Map;
 
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @Service
 public class KrakenTickerSubscriber {
     private final String[] SYMBOLS = {
@@ -27,8 +31,7 @@ public class KrakenTickerSubscriber {
         try {
             webSocket.sendText(mapper.writeValueAsString(subscription), true);
         } catch (JsonProcessingException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
+            log.error("Error parsing: " + e.getMessage());
         }
     }
 }

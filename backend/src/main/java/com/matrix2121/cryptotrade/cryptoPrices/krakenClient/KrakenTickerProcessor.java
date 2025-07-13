@@ -8,9 +8,12 @@ import com.matrix2121.cryptotrade.context.CryptoPricesContext;
 import com.matrix2121.cryptotrade.cryptoPrices.krakenClient.model.PriceTick;
 import com.matrix2121.cryptotrade.cryptoPrices.krakenClient.model.TickerFrame;
 
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.stereotype.Service;
 import org.springframework.web.socket.TextMessage;
 
+@Slf4j
 @Service
 public class KrakenTickerProcessor {
     private final ObjectMapper mapper = new ObjectMapper().registerModule(new JavaTimeModule());
@@ -31,7 +34,7 @@ public class KrakenTickerProcessor {
                 broadcastPriceTick(priceTick);
             }
         } catch (Exception e) {
-            // Exception handling deferred; do nothing for now
+           log.error("Error processing Kraken tick: " + e.getMessage());
         }
     }
 
@@ -48,8 +51,7 @@ public class KrakenTickerProcessor {
         try {
             jsonPayload = mapper.writeValueAsString(priceTick);
         } catch (JsonProcessingException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
+            log.error("Error serializing PriceTick: {}", priceTick, e);
         }
         TextMessage message = new TextMessage(jsonPayload);
         broadcaster.broadcast(message);
