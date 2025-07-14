@@ -15,13 +15,13 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Component
-public class BroadcasterImpl extends TextWebSocketHandler implements Broadcaster{
+public class BroadcasterImpl extends TextWebSocketHandler implements Broadcaster {
     private final Set<WebSocketSession> sessions = ConcurrentHashMap.newKeySet();
 
     @Override
     public void afterConnectionEstablished(@NonNull WebSocketSession session) throws Exception {
         sessions.add(session);
-        session.sendMessage(new TextMessage("WebSocket connection established!"));
+        session.sendMessage(new TextMessage("{\"type\": \"connection\", \"message\": \"WebSocket connection established!\"}"));
     }
 
     @Override
@@ -33,7 +33,7 @@ public class BroadcasterImpl extends TextWebSocketHandler implements Broadcaster
         for (WebSocketSession session : sessions) {
             if (session.isOpen()) {
                 try {
-                    session.sendMessage(new TextMessage("{\"type\":\"error\",\"message\":\"Connection issue. Please refresh.\"}"));
+                    session.sendMessage(message);
                 } catch (IOException e) {
                     log.error(e.getMessage());
                 }

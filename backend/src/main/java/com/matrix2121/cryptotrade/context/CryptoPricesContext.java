@@ -30,4 +30,12 @@ public class CryptoPricesContext {
         }
         return askMap.get(crypto);
     }
+
+    public static HashMap<String, BigDecimal> getBidMap() {
+        return bidMap;
+    }
+
+    public static HashMap<String, BigDecimal> getAskMap() {
+        return askMap;
+    }
 }

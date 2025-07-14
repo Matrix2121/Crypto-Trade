@@ -3,6 +3,7 @@ package com.matrix2121.cryptotrade.cryptoPrices.krakenClient;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.matrix2121.cryptotrade.context.CryptoPricesContext;
 import com.matrix2121.cryptotrade.cryptoPrices.krakenClient.model.PriceTick;
@@ -16,7 +17,7 @@ import org.springframework.web.socket.TextMessage;
 @Slf4j
 @Service
 public class KrakenTickerProcessor {
-    private final ObjectMapper mapper = new ObjectMapper().registerModule(new JavaTimeModule());
+    private final ObjectMapper mapper = new ObjectMapper().registerModule(new JavaTimeModule()).disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
     private final KrakenTickBroadcaster broadcaster;
 
     public KrakenTickerProcessor(KrakenTickBroadcaster broadcaster) {
