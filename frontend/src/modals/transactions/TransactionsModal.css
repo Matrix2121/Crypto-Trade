@@ -1,0 +1,52 @@
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 999;
+}
+
+.modal-content.wide {
+  background: #222;
+  padding: 20px;
+  border-radius: 10px;
+  width: 600px;
+  max-height: 80vh;
+  overflow-y: auto;
+  color: #fff;
+}
+
+.transaction-list {
+  list-style: none;
+  padding: 0;
+  margin-bottom: 1rem;
+}
+
+.transaction-list li {
+  cursor: pointer;
+  padding: 6px 10px;
+  border-bottom: 1px solid #444;
+}
+
+.transaction-list li:hover {
+  background-color: #333;
+}
+
+.transaction-details {
+  margin-top: 1rem;
+  background-color: #333;
+  padding: 1rem;
+  border-radius: 8px;
+}
+
+.close-button {
+  margin-top: 1rem;
+  background-color: #e74c3c;
+  color: #fff;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+}
