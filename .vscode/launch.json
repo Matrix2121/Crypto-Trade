@@ -1,0 +1,14 @@
+{
+  "configurations": [
+    {
+      "type": "java",
+      "name": "Spring Boot-CryptotradeApplication<cryptotrade>",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "mainClass": "com.matrix2121.cryptotrade.CryptotradeApplication",
+      "projectName": "cryptotrade",
+      "args": "",
+      "envFile": "${workspaceFolder}/.env"
+    }
+  ]
+}
