@@ -8,9 +8,12 @@ const AppProvider = ({ children }) => {
   const [assets, setAssets] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [reset, setReset] = useState(0);
-  const [lastOperation, setLastOperation] = useState(null);
+  const [resetDone, setResetDone] = useState(0);
+  const [lastOperation, setLastOperation] = useState(0);
 
   const doReset = () => setReset((prev) => prev + 1);
+  const doResetDone = () => setResetDone((prev) => prev + 1);
+  const newOperation = () => setLastOperation((prev) => prev + 1);
 
   return (
     <AppContext.Provider
@@ -25,8 +28,11 @@ const AppProvider = ({ children }) => {
         setTransactions,
         reset,
         doReset,
+        resetDone,
+        doResetDone,
         lastOperation,
-        setLastOperation
+        setLastOperation,
+        newOperation
       }}
     >
       {children}

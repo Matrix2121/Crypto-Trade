@@ -1,22 +1,26 @@
-import { useContext, useEffect } from "react";
+import { useEffect, useContext } from "react";
 import { AppContext } from "../context/AppContext";
 
 const useUser = () => {
   const { setUser } = useContext(AppContext);
 
   useEffect(() => {
-    fetch("http://localhost:8080/api/user/login", {
+    fetch(`http://localhost:8080/api/user/login`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ username: "Matrix2121" }),
+      body: JSON.stringify({
+        username: "Matrix2121",
+      }),
     })
-      .then((res) => {
-        if (!res.ok) throw new Error("Login failed");
-        return res.json();
+      .then((response) => {
+        if (!response.ok) throw new Error("Failed to post");
+        return response.json();
       })
-      .then((data) => setUser(data))
+      .then((data) => {
+        setUser(data);
+      })
       .catch(console.error);
   }, []);
 };

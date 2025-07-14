@@ -51,7 +51,7 @@
 }
 
 .portfolio-table td {
-  font-size: 1rem;
+  vertical-align: middle;
 }
 
 .close-button {

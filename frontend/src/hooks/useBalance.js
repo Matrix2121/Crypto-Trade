@@ -3,7 +3,7 @@ import { useContext } from "react";
 import { AppContext } from "../context/AppContext";
 
 const useBalance = () => {
-  const { user, reset, setBalance } = useContext(AppContext);
+  const { user, resetDone, lastOperation, setBalance } = useContext(AppContext);
 
   useEffect(() => {
     if (!user) return;
@@ -14,7 +14,7 @@ const useBalance = () => {
       })
       .then((data) => setBalance(data))
       .catch(console.error);
-  }, [user, reset]);
+  }, [user, resetDone, lastOperation]);
 };
 
 export default useBalance;

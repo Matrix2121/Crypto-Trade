@@ -1,6 +1,7 @@
 import React, { useContext } from "react";
 import { AppContext } from "../../context/AppContext";
 import useAssets from "../../hooks/useAssets";
+import { getCryptoIconPath } from "../../utils/getCryptoIconPath";
 import "./PortfolioModal.css";
 
 const PortfolioModal = ({ onClose }) => {
@@ -24,7 +25,26 @@ const PortfolioModal = ({ onClose }) => {
             <tbody>
               {assets.map((asset) => (
                 <tr key={`${asset.cryptoCode}-${asset.cryptoAmount}`}>
-                  <td>{asset.cryptoCode}</td>
+                  <td
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                    }}
+                  >
+                    <img
+                      src={getCryptoIconPath(asset.cryptoCode)}
+                      alt={asset.cryptoCode}
+                      width={24}
+                      height={24}
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src =
+                          "https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/32/icon/generic.png";
+                      }}
+                    />
+                    {asset.cryptoCode}
+                  </td>
                   <td>{asset.cryptoAmount}</td>
                 </tr>
               ))}

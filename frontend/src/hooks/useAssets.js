@@ -3,7 +3,7 @@ import { useContext } from "react";
 import { AppContext } from "../context/AppContext";
 
 const useAssets = () => {
-  const { user, reset, setAssets } = useContext(AppContext);
+  const { user, resetDone, setAssets, lastOperation } = useContext(AppContext);
 
   useEffect(() => {
     if (!user) return;
@@ -13,8 +13,11 @@ const useAssets = () => {
         return res.json();
       })
       .then((data) => setAssets(data))
-      .catch(console.error);
-  }, [user, reset]);
+      .catch((err) => {
+        console.error("Error loading assets:", err);
+        setAssets([]);
+      });
+  }, [user, resetDone, lastOperation]);
 };
 
 export default useAssets;

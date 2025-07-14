@@ -1,28 +1,30 @@
-import { useContext, useEffect } from "react";
+import { useContext } from "react";
 import { AppContext } from "../context/AppContext";
 
-const useBuy = (cryptoCode, cryptoAmount) => {
+const useBuy = () => {
   const { user, setLastOperation } = useContext(AppContext);
 
-  useEffect(() => {
+  const buy = async (cryptoCode, cryptoAmount) => {
     if (!user) return;
-    fetch(`http://localhost:8080/api/trade/buy${user.id}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        cryptoCode: cryptoCode,
-        cryptoAmount: cryptoAmount,
-      }),
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error("Trade failed");
-        return res.json();
-      })
-      .then((data) => setLastOperation(data))
-      .catch(console.error);
-  }, []);
+    try {
+      const res = await fetch(`http://localhost:8080/api/trade/buy/${user.id}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ cryptoCode, cryptoAmount }),
+      });
+      if (!res.ok) throw new Error("Trade failed");
+      const data = await res.json();
+      setLastOperation(data);
+      return data;
+    } catch (err) {
+      console.error(err);
+      throw err;
+    }
+  };
+
+  return buy;
 };
 
 export default useBuy;

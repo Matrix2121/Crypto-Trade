@@ -10,7 +10,7 @@ import "./MyHeader.css";
 function MyHeader() {
   const { user, balance, doReset } = useContext(AppContext);
   const [showPortfolio, setShowPortfolio] = useState(false);
-  const [showTransactions, setShowTransactions] = useState(false);
+  const [showTxModal, setShowTxModal] = useState(false);
 
   useUser();
   useBalance();
@@ -22,18 +22,26 @@ function MyHeader() {
         <div className="header-left">
           <span className="username">Hello, {user?.username}</span>
           <button onClick={() => setShowPortfolio(true)}>Assets</button>
-          <button onClick={() => setShowTransactions(true)}>Transactions</button>
+          <button onClick={() => setShowTxModal(true)}>Transactions</button>
           <button onClick={doReset}>Reset</button>
         </div>
         <div className="header-right">
           <span className="balance">
-            Balance: {balance ? Number(balance.balance).toFixed(2) : "Loading..."}$
+            Balance:{" "}
+            {balance ? Number(balance.balance).toFixed(2) : "Loading..."}$
           </span>
         </div>
       </header>
 
-      {showPortfolio && <PortfolioModal onClose={() => setShowPortfolio(false)} />}
-      {showTransactions && <TransactionsModal onClose={() => setShowTransactions(false)} />}
+      {showPortfolio && (
+        <PortfolioModal onClose={() => setShowPortfolio(false)} />
+      )}
+      {showTxModal && (
+        <TransactionsModal
+          userId={user.id}
+          onClose={() => setShowTxModal(false)}
+        />
+      )}
     </>
   );
 }

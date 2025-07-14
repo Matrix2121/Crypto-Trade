@@ -2,7 +2,7 @@ import { useContext, useEffect } from "react";
 import { AppContext } from "../context/AppContext";
 
 const useReset = () => {
-  const { user, reset, setReset } = useContext(AppContext);
+  const { user, reset, doResetDone } = useContext(AppContext);
 
   useEffect(() => {
     if (!user) return;
@@ -15,6 +15,9 @@ const useReset = () => {
       .then((res) => {
         if (!res.ok) throw new Error("Reset failed");
         return res.json();
+      })
+      .then(() => {
+        doResetDone();
       })
       .catch(console.error);
   }, [reset]);

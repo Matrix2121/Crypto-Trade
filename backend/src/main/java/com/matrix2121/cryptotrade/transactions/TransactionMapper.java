@@ -11,7 +11,8 @@ public class TransactionMapper {
             transactionModel.id(),
             transactionModel.cryptoCode(),
             transactionModel.cryptoAmount(),
-            transactionModel.isPurchase()
+            transactionModel.isPurchase(),
+            transactionModel.tradeTimestamp()
         );
     }
 
