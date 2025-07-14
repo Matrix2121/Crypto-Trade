@@ -10,6 +10,7 @@ import com.matrix2121.cryptotrade.transactions.TransactionMapper;
 import com.matrix2121.cryptotrade.transactions.TransactionModel;
 
 import java.util.List;
+import java.util.stream.Stream;
 
 @Repository
 public class TransactionDaoImpl implements TransactionDao {
@@ -22,11 +23,14 @@ public class TransactionDaoImpl implements TransactionDao {
         checkIfUserExists(userId);
         checkIfUserHasTransactions(userId);
 
-        return jdbcTemplate.queryForStream(
+        try (Stream<TransactionModel> stream = jdbcTemplate.queryForStream(
                 "select * from get_transactions_by_user_id(?)",
                 TransactionMapper.mapToTransactionModel(),
-                userId)
-                .toList();
+                userId)) {
+
+            List<TransactionModel> transactionsList = stream.toList();
+            return transactionsList;
+        }
     }
 
     @Override
