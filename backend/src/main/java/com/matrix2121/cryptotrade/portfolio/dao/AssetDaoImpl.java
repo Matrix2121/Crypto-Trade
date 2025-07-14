@@ -10,6 +10,7 @@ import com.matrix2121.cryptotrade.portfolio.AssetMapper;
 import com.matrix2121.cryptotrade.portfolio.AssetModel;
 
 import java.util.List;
+import java.util.stream.Stream;
 
 @Repository
 public class AssetDaoImpl implements AssetDao {
@@ -27,15 +28,18 @@ public class AssetDaoImpl implements AssetDao {
             throw new UserNotFoundException("User with ID " + userId + " not found");
         }
 
-        List<AssetModel> assetsList =  jdbcTemplate.queryForStream(
+        try (Stream<AssetModel> stream = jdbcTemplate.queryForStream(
                 "select * from get_assets_by_user_id(?)",
                 AssetMapper.mapToAssetModel(),
-                userId)
-                .toList();
-        if(assetsList.size() == 0){
-            throw new NoAssetsException("User doesn't have assets");
-        }
+                userId)) {
 
-        return assetsList;
+            List<AssetModel> assetsList = stream.toList();
+
+            if (assetsList.size() == 0) {
+                throw new NoAssetsException("User doesn't have assets");
+            }
+
+            return assetsList;
+        }
     }
 }
