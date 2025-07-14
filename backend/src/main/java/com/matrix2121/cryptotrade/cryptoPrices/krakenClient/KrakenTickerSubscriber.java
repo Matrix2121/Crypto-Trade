@@ -18,8 +18,8 @@ public class KrakenTickerSubscriber {
     private final String[] SYMBOLS = {
         "BTC/USD", "ETH/USD", "XRP/USD", "USDT/USD", "BNB/USD",
         "SOL/USD", "USDC/USD", "DOGE/USD", "TRX/USD", "ADA/USD",
-        "HYPE/USD", "SUI/USD", "XLM/USD", "LINK/USD", "BCH/USD",
-        "AVAX/USD", "HBAR/USD", "LEO/USD", "AHIB/USD", "TON/USD"
+        "WBTC/USD", "XLM/USD", "SUI/USD", "LINK/USD", "HBAR/USD",
+        "BCH/USD", "AVAX/USD", "SHIB/USD", "TON/USD", "LTC/USD"
     };
     private final ObjectMapper mapper = new ObjectMapper().registerModule(new JavaTimeModule());
 
