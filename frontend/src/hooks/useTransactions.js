@@ -7,7 +7,7 @@ const useTransactions = () => {
 
   useEffect(() => {
     if (!user) return;
-    fetch(`${process.env.URL}/api/transactions/all/${user.id}`)
+    fetch(`${process.env.REACT_APP_URL}/api/transactions/all/${user.id}`)
       .then((res) => {
         if (!res.ok) throw new Error("Fetch failed");
         return res.json();
