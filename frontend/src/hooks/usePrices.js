@@ -4,7 +4,7 @@ const usePrices = () => {
   const [prices, setPrices] = useState({});
 
   useEffect(() => {
-    fetch("http://localhost:8080/api/prices")
+    fetch(`${process.env.URL}/api/prices`)
       .then(res => res.json())
       .then(data => {
         const priceMap = {};
@@ -17,7 +17,7 @@ const usePrices = () => {
   }, []);
   
   useEffect(() => {
-    const socket = new WebSocket("ws://localhost:8080/ws");
+    const socket = new WebSocket(`${process.env.URL}/ws`);
 
     socket.onopen = () => {
       console.log("Connected to WebSocket");

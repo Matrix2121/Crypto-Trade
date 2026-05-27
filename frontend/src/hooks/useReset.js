@@ -6,7 +6,7 @@ const useReset = () => {
 
   useEffect(() => {
     if (!user) return;
-    fetch(`http://localhost:8080/api/user/reset/${user.id}`, {
+    fetch(`${process.env.URL}/api/user/reset/${user.id}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

@@ -6,7 +6,7 @@ const useTransactionDetails = (id) => {
   useEffect(() => {
     if (!id) return;
 
-    fetch(`http://localhost:8080/api/transactions/single/${id}`)
+    fetch(`${process.env.URL}/api/transactions/single/${id}`)
       .then((res) => {
         if (!res.ok) throw new Error("Fetch failed");
         return res.json();

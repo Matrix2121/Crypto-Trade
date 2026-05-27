@@ -7,7 +7,7 @@ const useAssets = () => {
 
   useEffect(() => {
     if (!user) return;
-    fetch(`http://localhost:8080/api/assets/${user.id}`)
+    fetch(`${process.env.URL}/api/assets/${user.id}`)
       .then((res) => {
         if (!res.ok) throw new Error("Fetch failed");
         return res.json();

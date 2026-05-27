@@ -8,7 +8,7 @@ const useSell = () => {
     if (!user) return;
     try {
       const res = await fetch(
-        `http://localhost:8080/api/trade/sell/${user.id}`,
+        `${process.env.URL}/api/trade/sell/${user.id}`,
         {
           method: "POST",
           headers: {

@@ -1,0 +1,59 @@
+:root {
+  /* Surfaces */
+  --color-bg-base: #0d1117;
+  --color-bg-card: #1e1e1e;
+  --color-bg-page: #1e1e24;
+  --color-bg-panel: #2a2a35;
+  --color-bg-panel-header: #3a3a4d;
+  --color-bg-row-hover: #333342;
+
+  /* Borders */
+  --color-border-subtle: #2d2d2d;
+  --color-border-default: #333333;
+  --color-border-muted: #444444;
+
+  /* Text */
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #cccccc;
+  --color-text-muted: #aaaaaa;
+  --color-text-tertiary: #cccccc;
+  --color-text-soft: #e0e0e0;
+  --color-text-dim: #888888;
+
+  /* Primary / links (blues) */
+  --color-accent-blue: #3b82f6;
+  --color-primary: #1f6feb;
+  --color-primary-hover: #1158c7;
+  --color-accent-list: #3498db;
+
+  /* Buy / sell */
+  --color-buy: #10b981;
+  --color-buy-hover: #059669;
+  --color-buy-text: #10b981;
+  --color-sell: #ef4444;
+  --color-sell-hover: #dc2626;
+  --color-sell-text: #ef4444;
+
+  /* Shadows & overlays */
+  --shadow-header: rgba(0, 0, 0, 0.1);
+  --shadow-card: rgba(0, 0, 0, 0.2);
+  --shadow-page: rgba(0, 0, 0, 0.3);
+
+  /* UI chrome */
+  --color-scrollbar-thumb: #555555;
+
+  /* Typography */
+  --font-sans: "Inter", "Roboto", system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+}
+
+body,
+html,
+#root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background-color: var(--color-bg-base);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+}

@@ -8,20 +8,23 @@
 }
 
 .crypto-card {
-  background-color: #1e1e1e;
-  border: 1px solid #2d2d2d;
+  background-color: var(--color-bg-card);
+  border: 1px solid var(--color-border-subtle);
   border-radius: 12px;
   padding: 1rem 1.5rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  transition: all 0.2s ease-in-out;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  transition: transform 0.2s ease-in-out, border-color 0.2s ease-in-out,
+    background-color 0.2s ease-in-out;
+  box-shadow: 0 4px 12px var(--shadow-card);
 }
 
 .crypto-card:hover {
-  transform: translateY(-4px);
-  border-color: #3b82f6;
+  transform: translateY(-2px);
+  border-color: var(--color-accent-blue);
+  background-color: var(--color-bg-panel);
 }
 
 .card-left {
@@ -44,46 +47,11 @@
 .card-left h4 {
   margin: 0;
   font-size: 1.1rem;
-  color: #ffffff;
+  color: var(--color-text-primary);
 }
 
 .card-left p {
   margin: 2px 0;
-  color: #cccccc;
+  color: var(--color-text-secondary);
   font-size: 0.9rem;
-}
-
-.card-right {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.buy-button,
-.sell-button {
-  padding: 6px 14px;
-  border: none;
-  border-radius: 6px;
-  font-weight: bold;
-  cursor: pointer;
-  font-size: 0.85rem;
-  transition: background 0.2s ease;
-}
-
-.buy-button {
-  background-color: #10b981;
-  color: white;
-}
-
-.sell-button {
-  background-color: #ef4444;
-  color: white;
-}
-
-.buy-button:hover {
-  background-color: #059669;
-}
-
-.sell-button:hover {
-  background-color: #dc2626;
 }
