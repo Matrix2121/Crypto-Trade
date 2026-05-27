@@ -5,7 +5,7 @@ const useUser = () => {
   const { setUser } = useContext(AppContext);
 
   useEffect(() => {
-    fetch(`${process.env.URL}/api/user/login`, {
+    fetch(`${process.env.REACT_APP_URL}/api/user/login`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

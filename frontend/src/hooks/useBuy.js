@@ -7,7 +7,7 @@ const useBuy = () => {
   const buy = async (cryptoCode, cryptoAmount) => {
     if (!user) return;
     try {
-      const res = await fetch(`${process.env.URL}/api/trade/buy/${user.id}`, {
+      const res = await fetch(`${process.env.REACT_APP_URL}/api/trade/buy/${user.id}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
