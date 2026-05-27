@@ -7,7 +7,7 @@ const useTransactions = () => {
 
   useEffect(() => {
     if (!user) return;
-    fetch(`http://localhost:8080/api/transactions/all/${user.id}`)
+    fetch(`${process.env.URL}/api/transactions/all/${user.id}`)
       .then((res) => {
         if (!res.ok) throw new Error("Fetch failed");
         return res.json();

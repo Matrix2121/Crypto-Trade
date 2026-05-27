@@ -1,0 +1,177 @@
+.crypto-details {
+  max-width: 1200px;
+  margin: 1.5rem auto 2rem auto;
+  padding: 0 1rem;
+  color: var(--color-text-primary);
+}
+
+.crypto-details-back {
+  background: transparent;
+  border: 1px solid var(--color-border-default);
+  color: var(--color-text-secondary);
+  border-radius: 10px;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+}
+
+.crypto-details-back:hover {
+  border-color: var(--color-border-subtle);
+  color: var(--color-text-primary);
+}
+
+.crypto-details-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.crypto-details-title {
+  margin: 0;
+  font-size: 2rem;
+  letter-spacing: -0.02em;
+}
+
+.crypto-details-subtitle {
+  margin: 0.35rem 0 0 0;
+  color: var(--color-text-secondary);
+}
+
+.crypto-details-price {
+  font-weight: 800;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.crypto-details-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* Trading actions — scoped to this page only */
+.crypto-details .buy-button,
+.crypto-details .sell-button {
+  appearance: none;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: bold;
+  font-size: 1rem;
+  cursor: pointer;
+  color: var(--color-text-primary);
+  transition: background-color 0.18s ease, transform 0.18s ease
+}
+
+.crypto-details .buy-button {
+  background-color: var(--color-buy);
+}
+
+.crypto-details .buy-button:hover {
+  background-color: var(--color-buy-hover);
+  transform: translateY(-2px);
+}
+
+.crypto-details .sell-button {
+  background-color: var(--color-sell);
+}
+
+.crypto-details .sell-button:hover {
+  background-color: var(--color-sell-hover);
+  transform: translateY(-2px);
+}
+
+.crypto-details .buy-button:active,
+.crypto-details .sell-button:active {
+  transform: scale(0.98);
+}
+
+.crypto-details .buy-button:focus-visible,
+.crypto-details .sell-button:focus-visible {
+  outline: 2px solid var(--color-accent-blue);
+  outline-offset: 2px;
+}
+
+.crypto-details-note {
+  margin-top: 1rem;
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border-default);
+  border-radius: 12px;
+  padding: 0.9rem 1rem;
+}
+
+.crypto-details-note-row {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.crypto-details-note-row + .crypto-details-note-row {
+  margin-top: 0.45rem;
+}
+
+.crypto-details-note-label {
+  color: var(--color-text-muted);
+}
+
+.crypto-details-note-value {
+  color: var(--color-text-secondary);
+}
+
+.crypto-details-predict {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+
+.crypto-details-predict-button {
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border-default);
+  color: var(--color-text-primary);
+  border-radius: 10px;
+  padding: 0.75rem 0.95rem;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.crypto-details-predict-button:hover {
+  border-color: var(--color-accent-blue);
+}
+
+.crypto-details-predict-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.crypto-details-predict-meta {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.95rem;
+}
+
+.crypto-details-predict-meta.warning {
+  color: var(--color-text-secondary);
+}
+
+.crypto-details-chart {
+  margin-top: 1.5rem;
+}
+
+.crypto-details-chart-title {
+  font-weight: 800;
+  color: var(--color-text-secondary);
+  margin-bottom: 0.65rem;
+}
+
+.crypto-details-chart-frame {
+  height: 420px;
+  background: var(--color-bg-page);
+  border: 1px solid var(--color-border-default);
+  border-radius: 14px;
+  padding: 10px;
+}
+

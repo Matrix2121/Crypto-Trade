@@ -1,7 +1,20 @@
-body, html, #root {
-  margin: 0;
-  padding: 0;
+/* Global tokens live in index.css */
+
+.app-shell {
+  display: flex;
+  flex-direction: row;
   height: 100%;
-  background-color: #0d1117;
-  color: white;
+  width: 100%;
+}
+
+.app-content {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  overflow-y: auto;
+  background: var(--color-bg-base);
+}
+
+.app-routes {
+  flex: 1;
 }

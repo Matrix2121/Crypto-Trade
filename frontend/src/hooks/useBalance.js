@@ -7,7 +7,7 @@ const useBalance = () => {
 
   useEffect(() => {
     if (!user) return;
-    fetch(`http://localhost:8080/api/balance/${user.id}`)
+    fetch(`${process.env.URL}/api/balance/${user.id}`)
       .then((res) => {
         if (!res.ok) throw new Error("Fetch failed");
         return res.json();
