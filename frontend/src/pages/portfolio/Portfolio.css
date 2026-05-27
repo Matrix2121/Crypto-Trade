@@ -1,0 +1,182 @@
+/* Main Page Container */
+.portfolio-page {
+  max-width: 800px;
+  margin: 2rem auto;
+  padding: 30px;
+  background: var(--color-bg-page);
+  border-radius: 12px;
+  color: var(--color-text-primary);
+  box-shadow: 0 4px 15px var(--shadow-page);
+}
+
+.portfolio-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  border-bottom: 1px solid var(--color-border-default);
+  padding-bottom: 1rem;
+}
+
+.portfolio-header h2 {
+  margin: 0;
+  font-weight: 600;
+  font-size: 2rem;
+}
+
+.portfolio-reset {
+  background-color: var(--color-sell);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-sell-hover);
+  padding: 0.55rem 0.9rem;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.portfolio-reset:hover {
+  background-color: var(--color-sell-hover);
+}
+
+.portfolio-chart {
+  margin-bottom: 1.5rem;
+}
+
+.portfolio-chart-title {
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  margin-bottom: 0.65rem;
+}
+
+.portfolio-chart-frame {
+  height: 220px;
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border-default);
+  border-radius: 12px;
+  padding: 10px 10px 6px 6px;
+}
+
+.empty-state {
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 1.1rem;
+  padding: 2rem 0;
+}
+
+/* Table Styling */
+.table-container {
+  overflow-x: auto; /* Ensures it doesn't break on small mobile screens */
+}
+
+.portfolio-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: var(--color-bg-panel);
+  border-radius: 8px;
+  overflow: hidden; /* Keeps the rounded corners on the background */
+}
+
+.portfolio-table thead {
+  background-color: var(--color-bg-panel-header);
+}
+
+.portfolio-table th {
+  color: var(--color-text-tertiary);
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05rem;
+  text-align: left;
+  padding: 1rem 1.5rem;
+}
+
+.portfolio-table td {
+  padding: 1rem 1.5rem;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.portfolio-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.portfolio-table tbody tr {
+  transition: background-color 0.2s ease;
+}
+
+.portfolio-table tbody tr:hover {
+  background-color: var(--color-bg-row-hover);
+}
+
+/* Specific Cell Alignments */
+.asset-cell {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  font-size: 1.2rem;
+}
+
+.amount-cell {
+  font-size: 1.1rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-soft);
+}
+
+/* Confirmation modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  z-index: 50;
+}
+
+.modal {
+  width: 100%;
+  max-width: 520px;
+  background: var(--color-bg-page);
+  border: 1px solid var(--color-border-default);
+  border-radius: 14px;
+  padding: 1.25rem;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.45);
+}
+
+.modal h3 {
+  margin: 0 0 0.5rem 0;
+}
+
+.modal p {
+  margin: 0 0 1rem 0;
+  color: var(--color-text-secondary);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.modal-button {
+  border-radius: 10px;
+  padding: 0.6rem 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-panel);
+  color: var(--color-text-primary);
+}
+
+.modal-button.secondary:hover {
+  border-color: var(--color-border-subtle);
+}
+
+.modal-button.danger {
+  border-color: var(--color-sell-hover);
+  background: var(--color-sell);
+}
+
+.modal-button.danger:hover {
+  background: var(--color-sell-hover);
+}

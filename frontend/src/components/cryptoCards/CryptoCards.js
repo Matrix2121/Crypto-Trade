@@ -1,40 +1,25 @@
 import { getCryptoIconPath } from "../../utils/getCryptoIconPath";
-import useBuy from "../../hooks/useBuy";
-import useSell from "../../hooks/useSell";
+import { useNavigate } from "react-router-dom";
 import "./CryptoCards.css";
 
 const CryptoCards = ({ prices }) => {
-  const buy = useBuy();
-  const sell = useSell();
+  const navigate = useNavigate();
 
   if (!prices || prices.length === 0) return <p>No data available.</p>;
-
-  const handleBuy = (symbol) => {
-    const amount = parseFloat(prompt(`Buy how much ${symbol}?`));
-    if (!amount || isNaN(amount)) return;
-    try {
-      buy(symbol, amount);
-      alert("Buy successful!");
-    } catch {
-      alert("Buy failed.");
-    }
-  };
-
-  const handleSell = (symbol) => {
-    const amount = parseFloat(prompt(`Sell how much ${symbol}?`));
-    if (!amount || isNaN(amount)) return;
-    try {
-      sell(symbol, amount);
-      alert("Sell successful!");
-    } catch {
-      alert("Sell failed.");
-    }
-  };
 
   return (
     <div className="crypto-cards-container">
       {prices.map((tick) => (
-        <div className="crypto-card" key={tick.symbol}>
+        <div
+          className="crypto-card"
+          key={tick.symbol}
+          onClick={() => navigate(`/market/${tick.symbol.replace('/', '-')}`)}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") navigate(`/market/${tick.symbol}`);
+          }}
+        >
           <div className="card-left">
             <img
               src={getCryptoIconPath(tick.symbol)}
@@ -51,24 +36,10 @@ const CryptoCards = ({ prices }) => {
               <h4>{tick.symbol}</h4>
               <p>Bid: {tick.bid}</p>
               <p>Ask: {tick.ask}</p>
-              <p style={{ fontSize: "0.75rem", color: "#888" }}>
+              <p style={{ fontSize: "0.75rem", color: "var(--color-text-dim)" }}>
                 Last Change: {new Date(tick.timestamp).toLocaleString("en-GB")}
               </p>
             </div>
-          </div>
-          <div className="card-right">
-            <button
-              className="buy-button"
-              onClick={() => handleBuy(tick.symbol)}
-            >
-              Buy
-            </button>
-            <button
-              className="sell-button"
-              onClick={() => handleSell(tick.symbol)}
-            >
-              Sell
-            </button>
           </div>
         </div>
       ))}

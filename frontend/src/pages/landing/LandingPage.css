@@ -1,0 +1,143 @@
+.landing {
+  min-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3.5rem 1.25rem;
+  background: var(--color-bg-base);
+  color: var(--color-text-primary);
+}
+
+.landing-hero {
+  width: 100%;
+  max-width: 1100px;
+  display: grid;
+  grid-template-columns: 1.35fr 0.65fr;
+  gap: 2rem;
+  align-items: center;
+}
+
+@media (max-width: 920px) {
+  .landing-hero {
+    grid-template-columns: 1fr;
+  }
+}
+
+.landing-kicker {
+  margin: 0 0 0.75rem 0;
+  color: var(--color-text-secondary);
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+}
+
+.landing-title {
+  margin: 0 0 0.75rem 0;
+  font-size: 2.6rem;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+@media (max-width: 520px) {
+  .landing-title {
+    font-size: 2.1rem;
+  }
+}
+
+.landing-subtitle {
+  margin: 0 0 1.5rem 0;
+  color: var(--color-text-secondary);
+  font-size: 1.05rem;
+  line-height: 1.55;
+  max-width: 54ch;
+}
+
+.landing-cta-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.landing-login {
+  background: linear-gradient(180deg, var(--color-primary), var(--color-primary-hover));
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-primary-hover);
+  border-radius: 10px;
+  padding: 0.85rem 1.1rem;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 1rem;
+  transition: transform 0.15s ease, filter 0.15s ease, border-color 0.15s ease;
+}
+
+.landing-login:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+  border-color: var(--color-accent-blue);
+}
+
+.landing-hint {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.landing-hero-card {
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border-default);
+  border-radius: 14px;
+  padding: 1.25rem;
+  box-shadow: 0 10px 30px var(--shadow-card);
+}
+
+.landing-metric {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.landing-metric-label {
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+}
+
+.landing-metric-value {
+  color: var(--color-text-primary);
+  font-weight: 700;
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.landing-divider {
+  height: 1px;
+  background: var(--color-border-default);
+  margin: 0.9rem 0;
+}
+
+.landing-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.landing-tag {
+  border-radius: 999px;
+  padding: 0.35rem 0.6rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-card);
+  color: var(--color-text-secondary);
+}
+
+.landing-tag.buy {
+  border-color: var(--color-buy);
+  color: var(--color-buy-text);
+}
+
+.landing-tag.sell {
+  border-color: var(--color-sell);
+  color: var(--color-sell-text);
+}
+
