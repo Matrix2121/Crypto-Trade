@@ -6,13 +6,13 @@ import "./Sidebar.css";
 
 const Sidebar = () => {
   const navigate = useNavigate();
-  const { user, setUser, balance } = useContext(AppContext);
+  const { user, logout, balance } = useContext(AppContext);
   const [isExpanded, setIsExpanded] = useState(true);
 
   useBalance();
 
   const handleLogout = () => {
-    setUser(null);
+    logout();
     navigate("/");
   };
 

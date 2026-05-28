@@ -22,26 +22,27 @@ const LandingPage = () => {
     console.log("1. Google handed React this Token:", credentialResponse.credential);
 
     try {
-      // 2. We send this token to your Spring Boot backend to verify
-      // (This fetch will fail until we build the Spring Boot side, but the logic is ready!)
-      /*
-      const response = await fetch('http://localhost:8080/api/auth/google', {
+      const response = await fetch(`${process.env.REACT_APP_URL}/api/auth/google`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: credentialResponse.credential }),
       });
-      const data = await response.json();
-      
-      // 3. Spring Boot replies with your custom JWT and user data
-      localStorage.setItem('jwt', data.internalJwt);
-      */
 
-      // Mocking the successful login for now so you can test the UI
-      setUser({ username: "GoogleUser" });
+      if (!response.ok) {
+        throw new Error(`Auth failed with status ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      localStorage.setItem('jwt', data.jwt);
+      localStorage.setItem('username', data.username);
+      setUser({ username: data.username, balance: data.balance });
+
       navigate('/market');
 
     } catch (error) {
       console.error("Login failed:", error);
+      alert("Login failed");
     }
   };
 
