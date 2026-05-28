@@ -2,8 +2,14 @@ import { createContext, useState } from "react";
 
 export const AppContext = createContext();
 
+const getInitialUser = () => {
+  const jwt = localStorage.getItem("jwt");
+  if (!jwt) return null;
+  return { id: localStorage.getItem("userId"), username: localStorage.getItem("username") };
+};
+
 const AppProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(getInitialUser);
   const [balance, setBalance] = useState(null);
   const [assets, setAssets] = useState([]);
   const [transactions, setTransactions] = useState([]);
@@ -14,12 +20,19 @@ const AppProvider = ({ children }) => {
   const doReset = () => setReset((prev) => prev + 1);
   const doResetDone = () => setResetDone((prev) => prev + 1);
   const newOperation = () => setLastOperation((prev) => prev + 1);
+  const logout = () => {
+    localStorage.removeItem("jwt");
+    localStorage.removeItem("userId");
+    localStorage.removeItem("username");
+    setUser(null);
+  };
 
   return (
     <AppContext.Provider
       value={{
         user,
         setUser,
+        logout,
         balance,
         setBalance,
         assets,

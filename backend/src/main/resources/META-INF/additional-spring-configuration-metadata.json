@@ -1,0 +1,12 @@
+{"properties": [
+  {
+    "name": "google.client.id",
+    "type": "java.lang.String",
+    "description": "google client public id"
+  },
+  {
+    "name": "jwt.secret",
+    "type": "java.lang.String",
+    "description": "jwt secret key"
+  }
+]}

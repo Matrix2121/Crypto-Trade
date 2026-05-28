@@ -7,7 +7,14 @@ const useTransactions = () => {
 
   useEffect(() => {
     if (!user) return;
-    fetch(`${process.env.REACT_APP_URL}/api/transactions/all/${user.id}`)
+    const token = localStorage.getItem("jwt");
+    if (!token) return;
+
+    fetch(`${process.env.REACT_APP_URL}/api/transactions/all/${user.id}`, {
+      headers: {
+        Authorization: "Bearer " + token,
+      },
+    })
       .then((res) => {
         if (!res.ok) throw new Error("Fetch failed");
         return res.json();

@@ -43,7 +43,7 @@ function App() {
         </Route>
       </Route>
 
-      {/* <Route path="*" element={<Navigate to="/" replace />} /> */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
