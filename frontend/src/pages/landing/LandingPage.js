@@ -34,9 +34,10 @@ const LandingPage = () => {
 
       const data = await response.json();
 
+      localStorage.setItem('userId', data.id);
       localStorage.setItem('jwt', data.jwt);
       localStorage.setItem('username', data.username);
-      setUser({ username: data.username, balance: data.balance });
+      setUser({ id: data.id, username: data.username, balance: data.balance });
 
       navigate('/market');
 

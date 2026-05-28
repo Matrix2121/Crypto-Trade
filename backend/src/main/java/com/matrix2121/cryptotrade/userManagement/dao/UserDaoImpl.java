@@ -22,7 +22,7 @@ public class UserDaoImpl implements UserDao {
     public Optional<UserModel> getUserByUsername(UserLoginDto userLoginDto) {
         checkIfUserExistsByUsername(userLoginDto.username());
         return Optional.ofNullable(jdbcTemplate.queryForObject(
-                "select id, username, email, picture_url from users where username = ?",
+                "select id, username, email, balance, picture_url from users where username = ?",
                 UserMapper.mapToUserModel(),
                 userLoginDto.username()));
     }
@@ -38,7 +38,7 @@ public class UserDaoImpl implements UserDao {
         }
 
         return Optional.ofNullable(jdbcTemplate.queryForObject(
-                "select id, username, email, picture_url from users where email = ?",
+                "select id, username, balance, email, picture_url from users where email = ?",
                 UserMapper.mapToUserModel(),
                 email));
     }

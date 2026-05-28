@@ -35,5 +35,31 @@ public class JwtService {
                         SignatureAlgorithm.HS256)
                 .compact();
     }
-}
 
+    public String extractUsername(String token) {
+        String effectiveSecret = (secret == null || secret.isBlank()) ? DEFAULT_SECRET : secret;
+        
+        return Jwts.parserBuilder()
+                .setSigningKey(Keys.hmacShaKeyFor(effectiveSecret.getBytes(StandardCharsets.UTF_8)))
+                .build()
+                .parseClaimsJws(token)
+                .getBody()
+                .getSubject();
+    }
+
+    public boolean validateToken(String token) {
+        try {
+            String effectiveSecret = (secret == null || secret.isBlank()) ? DEFAULT_SECRET : secret;
+            
+            Jwts.parserBuilder()
+                    .setSigningKey(Keys.hmacShaKeyFor(effectiveSecret.getBytes(StandardCharsets.UTF_8)))
+                    .build()
+                    .parseClaimsJws(token);
+                    
+            return true;
+        } catch (Exception e) {
+            System.out.println("Token validation failed: " + e.getMessage());
+            return false;
+        }
+    }
+}

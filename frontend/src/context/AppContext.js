@@ -5,7 +5,7 @@ export const AppContext = createContext();
 const getInitialUser = () => {
   const jwt = localStorage.getItem("jwt");
   if (!jwt) return null;
-  return { username: localStorage.getItem("username") };
+  return { id: localStorage.getItem("userId"), username: localStorage.getItem("username") };
 };
 
 const AppProvider = ({ children }) => {
@@ -22,6 +22,7 @@ const AppProvider = ({ children }) => {
   const newOperation = () => setLastOperation((prev) => prev + 1);
   const logout = () => {
     localStorage.removeItem("jwt");
+    localStorage.removeItem("userId");
     localStorage.removeItem("username");
     setUser(null);
   };
