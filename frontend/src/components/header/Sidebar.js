@@ -43,6 +43,7 @@ const Sidebar = () => {
             <NavLink
               key={item.to}
               to={item.to}
+              end={item.to === "/market"}
               className={({ isActive }) =>
                 `sidebar-link${isActive ? " active" : ""}`
               }

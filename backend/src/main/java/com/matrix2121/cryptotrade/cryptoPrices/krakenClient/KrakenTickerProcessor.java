@@ -43,16 +43,27 @@ public class KrakenTickerProcessor {
         return "ticker".equals(root.path("channel").asText()) && ("update".equals(root.path("type").asText()) || "snapshot".equals(root.path("type").asText()));
     }
 
-    private void updateContext(PriceTick priceTick){
+    private void updateContext(PriceTick priceTick) {
         CryptoPricesContext.setPrices(priceTick.symbol(), priceTick.bid(), priceTick.ask());
     }
 
+    private PriceTick enrichWithPrevious(PriceTick priceTick) {
+        return new PriceTick(
+                priceTick.symbol(),
+                priceTick.ask(),
+                priceTick.bid(),
+                CryptoPricesContext.getPreviousAsk(priceTick.symbol()),
+                CryptoPricesContext.getPreviousBid(priceTick.symbol()),
+                priceTick.timestamp());
+    }
+
     private void broadcastPriceTick(PriceTick priceTick) {
+        PriceTick payload = enrichWithPrevious(priceTick);
         String jsonPayload = null;
         try {
-            jsonPayload = mapper.writeValueAsString(priceTick);
+            jsonPayload = mapper.writeValueAsString(payload);
         } catch (JsonProcessingException e) {
-            log.error("Error serializing PriceTick: {}", priceTick, e);
+            log.error("Error serializing PriceTick: {}", payload, e);
         }
         TextMessage message = new TextMessage(jsonPayload);
         broadcaster.broadcast(message);

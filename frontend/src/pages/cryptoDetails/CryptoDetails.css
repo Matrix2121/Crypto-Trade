@@ -1,177 +1,311 @@
-.crypto-details {
-  max-width: 1200px;
-  margin: 1.5rem auto 2rem auto;
-  padding: 0 1rem;
+/* ── Terminal shell ───────────────────────────────────────────── */
+
+.crypto-details-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem 1.25rem;
+  max-width: 1600px;
+  margin: 0 auto;
+  min-height: 100%;
   color: var(--color-text-primary);
+  background: var(--color-bg-base);
+  box-sizing: border-box;
 }
 
-.crypto-details-back {
-  background: transparent;
+.crypto-back-btn {
+  align-self: flex-start;
+  appearance: none;
+  background: var(--color-bg-panel);
   border: 1px solid var(--color-border-default);
   color: var(--color-text-secondary);
-  border-radius: 10px;
-  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
+  padding: 0.3125rem 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 600;
   cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
 }
 
-.crypto-details-back:hover {
+.crypto-back-btn:hover {
   border-color: var(--color-border-subtle);
   color: var(--color-text-primary);
 }
 
-.crypto-details-header {
+/* ── Top bar ─────────────────────────────────────────────────── */
+
+.terminal-header {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: 1rem;
-  margin-top: 1rem;
-}
-
-.crypto-details-title {
-  margin: 0;
-  font-size: 2rem;
-  letter-spacing: -0.02em;
-}
-
-.crypto-details-subtitle {
-  margin: 0.35rem 0 0 0;
-  color: var(--color-text-secondary);
-}
-
-.crypto-details-price {
-  font-weight: 800;
-  color: var(--color-text-primary);
-  font-variant-numeric: tabular-nums;
-}
-
-.crypto-details-actions {
-  display: flex;
-  gap: 12px;
   align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.375rem 0;
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.crypto-symbol {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
+}
+
+/* ── Two-column main: chart | order book actions ─────────────── */
+
+.terminal-main {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 0.75rem;
+  align-items: stretch;
+  flex: 1;
+  min-height: 0;
+}
+
+.chart-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.order-section {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* ── Chart area ──────────────────────────────────────────────── */
+
+.crypto-chart-wrapper {
+  position: relative;
+  flex: 1;
+  min-height: 420px;
+  background: var(--color-bg-page);
+  border: 1px solid var(--color-border-default);
+  border-radius: 4px;
+  padding: 0.375rem;
+  box-sizing: border-box;
+}
+
+.crypto-chart-wrapper .chart-status {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.crypto-chart-wrapper .chart-status.error {
+  color: var(--color-sell-text);
+}
+
+.timeframe-selector {
+  display: flex;
+  flex-direction: row;
+  gap: 0.25rem;
   flex-wrap: wrap;
 }
 
-/* Trading actions — scoped to this page only */
-.crypto-details .buy-button,
-.crypto-details .sell-button {
+.timeframe-btn {
   appearance: none;
-  border: none;
-  padding: 12px 24px;
-  border-radius: 8px;
-  font-weight: bold;
-  font-size: 1rem;
+  border: 1px solid var(--color-border-default);
+  padding: 0.25rem 0.625rem;
+  border-radius: 3px;
+  background: var(--color-bg-panel);
+  color: var(--color-text-secondary);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
   cursor: pointer;
-  color: var(--color-text-primary);
-  transition: background-color 0.18s ease, transform 0.18s ease
+  transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
 }
 
-.crypto-details .buy-button {
+.timeframe-btn:hover {
+  border-color: var(--color-border-subtle);
+  color: var(--color-text-primary);
+}
+
+.timeframe-btn:focus-visible {
+  outline: 1px solid var(--color-accent-blue);
+  outline-offset: 1px;
+}
+
+.timeframe-btn.active {
+  background: var(--color-accent-blue);
+  border-color: var(--color-accent-blue);
+  color: var(--color-text-primary);
+}
+
+/* ── Trading panel: bid / ask blocks + actions ───────────────── */
+
+.trading-panel {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  height: 100%;
+  align-content: start;
+}
+
+.quote-column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.bid-box,
+.ask-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 0.75rem 0.625rem;
+  border-radius: 4px;
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-panel);
+  min-height: 88px;
+  box-sizing: border-box;
+}
+
+.ask-box {
+  border-color: color-mix(in srgb, var(--color-buy) 35%, var(--color-border-default));
+  background: color-mix(in srgb, var(--color-buy) 6%, var(--color-bg-panel));
+}
+
+.bid-box {
+  border-color: color-mix(in srgb, var(--color-sell) 35%, var(--color-border-default));
+  background: color-mix(in srgb, var(--color-sell) 6%, var(--color-bg-panel));
+}
+
+@supports not (background: color-mix(in srgb, white 50%, black)) {
+  .ask-box {
+    border-color: var(--color-border-subtle);
+    background: var(--color-bg-panel);
+  }
+
+  .bid-box {
+    border-color: var(--color-border-subtle);
+    background: var(--color-bg-panel);
+  }
+}
+
+.quote-label {
+  margin: 0;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  line-height: 1.2;
+}
+
+.ask-box .quote-label {
+  color: var(--color-buy-text);
+}
+
+.bid-box .quote-label {
+  color: var(--color-sell-text);
+}
+
+.quote-price {
+  margin: 0;
+  font-family: ui-monospace, "Cascadia Code", "SF Mono", Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 1.625rem;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: #f4f4f5;
+  word-break: break-all;
+}
+
+.ask-box .quote-price,
+.bid-box .quote-price {
+  color: #f4f4f5;
+}
+
+.quote-price .price-flash {
+  color: #f4f4f5;
+}
+
+.quote-price .price-delta {
+  font-size: 0.8125rem;
+  opacity: 0.95;
+}
+
+/* Buy sits under ASK; Sell sits under BID */
+.btn-buy,
+.btn-sell {
+  appearance: none;
+  border: none;
+  width: 100%;
+  padding: 0.75rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8125rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  color: var(--color-text-primary);
+  transition: background-color 0.12s ease, transform 0.12s ease;
+}
+
+.btn-buy {
   background-color: var(--color-buy);
 }
 
-.crypto-details .buy-button:hover {
+.btn-buy:hover {
   background-color: var(--color-buy-hover);
-  transform: translateY(-2px);
 }
 
-.crypto-details .sell-button {
+.btn-sell {
   background-color: var(--color-sell);
 }
 
-.crypto-details .sell-button:hover {
+.btn-sell:hover {
   background-color: var(--color-sell-hover);
-  transform: translateY(-2px);
 }
 
-.crypto-details .buy-button:active,
-.crypto-details .sell-button:active {
+.btn-buy:active,
+.btn-sell:active {
   transform: scale(0.98);
 }
 
-.crypto-details .buy-button:focus-visible,
-.crypto-details .sell-button:focus-visible {
+.btn-buy:focus-visible,
+.btn-sell:focus-visible {
   outline: 2px solid var(--color-accent-blue);
   outline-offset: 2px;
 }
 
-.crypto-details-note {
-  margin-top: 1rem;
-  background: var(--color-bg-panel);
-  border: 1px solid var(--color-border-default);
-  border-radius: 12px;
-  padding: 0.9rem 1rem;
+/* ── Responsive: stack on narrow screens ─────────────────────── */
+
+@media (max-width: 960px) {
+  .terminal-main {
+    grid-template-columns: 1fr;
+  }
+
+  .order-section {
+    order: -1;
+  }
+
+  .trading-panel {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .crypto-chart-wrapper {
+    min-height: 340px;
+  }
 }
 
-.crypto-details-note-row {
-  display: flex;
-  gap: 0.6rem;
-  flex-wrap: wrap;
-}
+@media (max-width: 480px) {
+  .trading-panel {
+    grid-template-columns: 1fr;
+  }
 
-.crypto-details-note-row + .crypto-details-note-row {
-  margin-top: 0.45rem;
+  .quote-price {
+    font-size: 1.375rem;
+  }
 }
-
-.crypto-details-note-label {
-  color: var(--color-text-muted);
-}
-
-.crypto-details-note-value {
-  color: var(--color-text-secondary);
-}
-
-.crypto-details-predict {
-  margin-top: 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  align-items: flex-start;
-}
-
-.crypto-details-predict-button {
-  background: var(--color-bg-panel);
-  border: 1px solid var(--color-border-default);
-  color: var(--color-text-primary);
-  border-radius: 10px;
-  padding: 0.75rem 0.95rem;
-  cursor: pointer;
-  font-weight: 700;
-}
-
-.crypto-details-predict-button:hover {
-  border-color: var(--color-accent-blue);
-}
-
-.crypto-details-predict-button:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.crypto-details-predict-meta {
-  margin: 0;
-  color: var(--color-text-muted);
-  font-size: 0.95rem;
-}
-
-.crypto-details-predict-meta.warning {
-  color: var(--color-text-secondary);
-}
-
-.crypto-details-chart {
-  margin-top: 1.5rem;
-}
-
-.crypto-details-chart-title {
-  font-weight: 800;
-  color: var(--color-text-secondary);
-  margin-bottom: 0.65rem;
-}
-
-.crypto-details-chart-frame {
-  height: 420px;
-  background: var(--color-bg-page);
-  border: 1px solid var(--color-border-default);
-  border-radius: 14px;
-  padding: 10px;
-}
-
