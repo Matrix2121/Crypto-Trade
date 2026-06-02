@@ -63,7 +63,7 @@ function mapToChartData(items, range) {
   return items.map((item) => ({
     timestamp: item.timestamp,
     time: formatTime(item.timestamp, range),
-    price: Number(item.closePrice),
+    price: Number(item.close),
   }));
 }
 
@@ -103,14 +103,10 @@ const useHistory = (symbol, range) => {
       setError(null);
 
       const pathSymbol = symbol.replace("/", "");
-      const fetchUrl = `${process.env.REACT_APP_URL}/api/history/${pathSymbol}?interval=${interval}`;
+      const fetchUrl = `${process.env.REACT_APP_URL}/api/history/${pathSymbol}/ohlc?interval=${interval}`;
 
       try {
-        const response = await fetch(fetchUrl, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        const response = await fetch(fetchUrl);
 
         if (!response.ok) {
           throw new Error(`Failed to fetch history (${response.status})`);

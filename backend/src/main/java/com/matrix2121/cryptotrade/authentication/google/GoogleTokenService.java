@@ -1,5 +1,7 @@
 package com.matrix2121.cryptotrade.authentication.google;
 
+import java.io.IOException;
+import java.security.GeneralSecurityException;
 import java.util.Collections;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -20,22 +22,26 @@ public class GoogleTokenService {
 
     public Payload verifyGoogleToken(String token) {
         try {
-            NetHttpTransport transport = GoogleNetHttpTransport.newTrustedTransport();
-
-            GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(
-                    transport,
-                    GsonFactory.getDefaultInstance())
-                    .setAudience(Collections.singletonList(clientId))
-                    .build();
-
-            GoogleIdToken idToken = verifier.verify(token);
-            if (idToken == null) {
-                throw new IllegalArgumentException("Invalid ID token.");
-            }
-
-            return idToken.getPayload();
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to verify Google Token", e);
+            return verifyTokenPayload(token);
+        } catch (IOException | GeneralSecurityException e) {
+            throw new IllegalStateException("Failed to verify Google Token", e);
         }
+    }
+
+    private Payload verifyTokenPayload(String token) throws IOException, GeneralSecurityException {
+        NetHttpTransport transport = GoogleNetHttpTransport.newTrustedTransport();
+
+        GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(
+                transport,
+                GsonFactory.getDefaultInstance())
+                .setAudience(Collections.singletonList(clientId))
+                .build();
+
+        GoogleIdToken idToken = verifier.verify(token);
+        if (idToken == null) {
+            throw new IllegalArgumentException("Invalid ID token.");
+        }
+
+        return idToken.getPayload();
     }
 }

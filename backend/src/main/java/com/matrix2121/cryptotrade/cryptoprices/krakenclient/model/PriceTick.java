@@ -1,4 +1,4 @@
-package com.matrix2121.cryptotrade.cryptoPrices.krakenClient.model;
+package com.matrix2121.cryptotrade.cryptoprices.krakenclient.model;
 
 import java.math.BigDecimal;
 import java.time.Instant;

@@ -1,236 +1,349 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import usePrices, { getTickMidPrice } from "./usePrices";
 
-const INTERVAL_MAP = {
-  "1M": 1,
-  "5M": 5,
-  "1H": 60,
-  "1D": 1440,
-  "1W": 10080,
+// ─── Public range list ────────────────────────────────────────────────────────
+
+export const CHART_RANGES = [
+  "1Min", "5Min", "15Min",
+  "1H", "1D", "1W", "1M", "3M", "1Y", "5Y",
+];
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const FIFTEEN_S_BUCKET_MS = 15_000;
+const FIFTEEN_MIN_MS      = 15 * 60 * 1_000;
+const MAX_TICK_POINTS     = 2_000;
+
+// Ranges served from in-memory master caches (no API fetch per range).
+const SHORT_TERM_RANGES = new Set(["1Min", "5Min", "15Min"]);
+
+const TICK_WINDOW_MS = {
+  "1Min":   1 * 60 * 1_000,
+  "5Min":   5 * 60 * 1_000,
+  "15Min": 15 * 60 * 1_000,
 };
 
-const MAX_LIVE_POINTS = 100;
-const SHORT_INTERVAL_MINUTES = 5;
+const OHLC_WINDOW_MS = {
+  "1H":   1 * 60 * 60 * 1_000,
+  "1D":  24 * 60 * 60 * 1_000,
+  "1W":   7 * 24 * 60 * 60 * 1_000,
+  "1M":  30 * 24 * 60 * 60 * 1_000,
+  "3M":  90 * 24 * 60 * 60 * 1_000,
+  "1Y": 365 * 24 * 60 * 60 * 1_000,
+  "5Y": 5 * 365 * 24 * 60 * 60 * 1_000,
+};
+
+const LIVE_OHLC_RANGES = Object.keys(OHLC_WINDOW_MS);
+
+// Master arrays replace the per-range tick/candle keys.
+// Long OHLC ranges start as null (unfetched) and are populated lazily.
+const EMPTY_CACHE = {
+  masterTicks:      [],
+  master15sCandles: [],
+  "1H": null, "1D": null, "1W": null,
+  "1M": null, "3M": null, "1Y": null, "5Y": null,
+};
+
+// ─── Pure helpers ─────────────────────────────────────────────────────────────
 
 function normalizeSymbol(symbol) {
   return String(symbol).replace("-", "/").toUpperCase();
 }
 
-function getWindowSeconds(range, intervalMinutes) {
-  if (range === "1W") {
-    return null;
-  }
-  return intervalMinutes * 60 * MAX_LIVE_POINTS;
+function toTimestampMs(ts) {
+  const n = Number(ts);
+  if (Number.isNaN(n)) return Date.now();
+  return n < 1e12 ? n * 1000 : n;
 }
 
-function filterByRange(items, range, intervalMinutes) {
-  const windowSeconds = getWindowSeconds(range, intervalMinutes);
-  if (windowSeconds == null || items.length === 0) {
-    return items;
-  }
-  const latestTs = items[items.length - 1].timestamp;
-  const cutoff = latestTs - windowSeconds;
-  return items.filter((item) => item.timestamp >= cutoff);
+function getLiveTickTimestampMs(tick) {
+  if (tick?.timestamp instanceof Date) return tick.timestamp.getTime();
+  if (tick?.timestamp) return toTimestampMs(tick.timestamp);
+  return Date.now();
 }
 
-export function formatChartTime(ts, range) {
-  const date = new Date(ts * 1000);
-
-  if (range === "1M" || range === "5M" || range === "1H") {
-    return date.toLocaleTimeString("en-GB", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
-  }
-
-  if (range === "1D") {
-    return date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "2-digit",
-    });
-  }
-
-  if (range === "1W") {
-    return date.toLocaleDateString("en-US", {
-      month: "short",
-      year: "numeric",
-    });
-  }
-
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "2-digit",
-  });
+function toApiPathSymbol(symbol) {
+  return normalizeSymbol(symbol).replace("/", "-");
 }
 
-function getBucketStart(tsSeconds, intervalMinutes) {
-  const bucketSize = intervalMinutes * 60;
-  return Math.floor(tsSeconds / bucketSize) * bucketSize;
+function mapTicksToChart(items) {
+  return items
+    .map((item) => ({
+      timestamp: toTimestampMs(item.timestamp),
+      price: Number(item.price),
+      bid: item.bid == null ? null : Number(item.bid),
+      ask: item.ask == null ? null : Number(item.ask),
+    }))
+    .filter((p) => !Number.isNaN(p.price))
+    .sort((a, b) => a.timestamp - b.timestamp);
 }
 
-function mapHistoryToChart(items, range) {
-  return items.map((item) => ({
-    timestamp: item.timestamp,
-    time: formatChartTime(item.timestamp, range),
-    price: Number(item.closePrice),
-  }));
+function mapOhlcToChart(items) {
+  return items
+    .map((item) => ({
+      timestamp: toTimestampMs(item.timestamp),
+      open:  Number(item.open),
+      high:  Number(item.high),
+      low:   Number(item.low),
+      close: Number(item.close),
+    }))
+    .filter((p) => !Number.isNaN(p.close))
+    .sort((a, b) => a.timestamp - b.timestamp);
 }
 
-function trimIfShort(data, intervalMinutes) {
-  if (intervalMinutes > SHORT_INTERVAL_MINUTES || data.length <= MAX_LIVE_POINTS) {
-    return data;
-  }
-  return data.slice(data.length - MAX_LIVE_POINTS);
+function filterByWindow(data, windowMs) {
+  if (windowMs == null || data.length === 0) return data;
+  const cutoff = Date.now() - windowMs;
+  return data.filter((p) => p.timestamp >= cutoff);
 }
 
-function getLivePrice(tick) {
-  const bid = Number(tick.bid);
-  const ask = Number(tick.ask);
-  if (!Number.isNaN(bid) && !Number.isNaN(ask)) {
-    return (bid + ask) / 2;
-  }
-  return !Number.isNaN(ask) ? ask : bid;
+// ─── Network ──────────────────────────────────────────────────────────────────
+
+async function fetchRangeHistory(symbol, range) {
+  const pathSegment = toApiPathSymbol(symbol);
+  const url = `${process.env.REACT_APP_URL}/api/history/${pathSegment}?range=${encodeURIComponent(range)}`;
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(
+    `Failed to fetch chart data for ${pathSegment} range=${range} (${response.status})`
+  );
+  const data = await response.json();
+  if (!Array.isArray(data)) throw new Error("Invalid chart data response");
+  return data;
 }
 
-function getTickTimestampSeconds(tick) {
-  if (tick.timestamp) {
-    return Math.floor(new Date(tick.timestamp).getTime() / 1000);
-  }
-  return Math.floor(Date.now() / 1000);
+async function fetchLiveContext(symbol) {
+  const pathSegment = toApiPathSymbol(symbol);
+  const url = `${process.env.REACT_APP_URL}/api/history/live-context/${pathSegment}`;
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(
+    `Failed to fetch live context for ${pathSegment} (${response.status})`
+  );
+  return response.json(); // { ticks: [...], candles15s: [...] }
 }
 
-function applyLiveTick(prev, tick, range, intervalMinutes) {
-  const livePrice = getLivePrice(tick);
-  if (Number.isNaN(livePrice)) {
-    return prev;
-  }
+// ─── Hook ─────────────────────────────────────────────────────────────────────
 
-  const tickTs = getTickTimestampSeconds(tick);
-  const bucket = getBucketStart(tickTs, intervalMinutes);
-
-  if (prev.length === 0) {
-    return trimIfShort(
-      [{ timestamp: bucket, time: formatChartTime(bucket, range), price: livePrice }],
-      intervalMinutes
-    );
-  }
-
-  const last = prev[prev.length - 1];
-  const lastBucket = getBucketStart(last.timestamp, intervalMinutes);
-
-  let next;
-  if (bucket === lastBucket) {
-    next = [...prev.slice(0, -1), { ...last, price: livePrice }];
-  } else if (bucket > lastBucket) {
-    next = [
-      ...prev,
-      { timestamp: bucket, time: formatChartTime(bucket, range), price: livePrice },
-    ];
-  } else {
-    return prev;
-  }
-
-  return trimIfShort(next, intervalMinutes);
-}
-
-const useLiveChart = (symbol, range) => {
+const useLiveChart = (symbol, initialRange = "1Min", chartMode = "line") => {
+  const [range, setRange]         = useState(initialRange);
   const [chartData, setChartData] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [chartType, setChartType] = useState("TICK");
 
+  const cache          = useRef({ ...EMPTY_CACHE });
+  const lastLiveKeyRef = useRef(null);
+
+  // Refs mirror the latest range/chartMode values so stable callbacks can read
+  // them without needing those values in their dependency arrays.
+  const rangeRef     = useRef(range);
+  const chartModeRef = useRef(chartMode);
+  rangeRef.current     = range;
+  chartModeRef.current = chartMode;
+
+  const prices           = usePrices();
   const normalizedSymbol = normalizeSymbol(symbol);
-  const intervalMinutes = INTERVAL_MAP[range];
 
+  const liveTick = useMemo(
+    () => prices.find((tick) => normalizeSymbol(tick.symbol) === normalizedSymbol),
+    [prices, normalizedSymbol]
+  );
+
+  // ── updateShortTermChart ──────────────────────────────────────────────────
+  // Stable helper (empty deps). Reads range and chartMode from refs at call time.
+  // Filters the master caches to the window of the current range and drives a
+  // re-render. No-ops when the current range is not a short-term range.
+  const updateShortTermChart = useCallback(() => {
+    const r  = rangeRef.current;
+    const cm = chartModeRef.current;
+    if (!SHORT_TERM_RANGES.has(r)) return;
+
+    const cutoff = Date.now() - TICK_WINDOW_MS[r];
+
+    if (cm === "candle") {
+      const filtered = (cache.current.master15sCandles || []).filter(
+        (c) => c.timestamp >= cutoff
+      );
+      setChartType("OHLC");
+      setChartData(filtered);
+    } else {
+      const raw      = (cache.current.masterTicks || []).filter(
+        (t) => t.timestamp >= cutoff
+      );
+      const windowed = raw.length <= MAX_TICK_POINTS ? raw : raw.slice(-MAX_TICK_POINTS);
+      setChartType("TICK");
+      setChartData(windowed);
+    }
+  }, []); // stable — all data accessed via refs or module constants
+
+  // ── Effect A: re-filter on range / chartMode / symbol change ─────────────
+  // Toggling Line↔Candle or switching between short-term timeframes is instant
+  // because data is already in the master caches; no network call needed.
   useEffect(() => {
-    if (!symbol || !range || intervalMinutes === undefined) {
-      setChartData([]);
-      setLoading(false);
-      setError(null);
-      return;
+    if (!SHORT_TERM_RANGES.has(range)) return;
+    updateShortTermChart();
+  }, [range, chartMode, symbol, updateShortTermChart]);
+
+  // ── Effect B: fetch long-term OHLC data from API ──────────────────────────
+  useEffect(() => {
+    if (!symbol || !range) return undefined;
+    if (SHORT_TERM_RANGES.has(range)) return undefined; // handled by Effect A
+
+    const windowMs = OHLC_WINDOW_MS[range];
+    if (windowMs == null) return undefined;
+
+    // Cache hit
+    const cached = cache.current[range];
+    if (Array.isArray(cached)) {
+      setChartType("OHLC");
+      setChartData(cached);
+      setIsLoading(false);
+      return undefined;
     }
 
-    const token = localStorage.getItem("jwt");
-    if (!token) {
-      setChartData([]);
-      setLoading(false);
-      setError(null);
-      return;
-    }
+    setChartType("OHLC");
+    setIsLoading(true);
+    setChartData([]);
+    lastLiveKeyRef.current = null;
 
     let cancelled = false;
 
     const loadHistory = async () => {
-      setLoading(true);
-      setError(null);
-      setChartData([]);
-
-      const pathSymbol = symbol.replace("/", "");
-      const fetchUrl = `${process.env.REACT_APP_URL}/api/history/${pathSymbol}?interval=${intervalMinutes}`;
-
       try {
-        const response = await fetch(fetchUrl, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch history (${response.status})`);
-        }
-
-        const json = await response.json();
-        const filtered = filterByRange(json, range, intervalMinutes);
-        const seeded = trimIfShort(mapHistoryToChart(filtered, range), intervalMinutes);
-
-        if (!cancelled) {
-          setChartData(seeded);
-        }
+        const raw     = await fetchRangeHistory(symbol, range);
+        if (cancelled) return;
+        const fetched = filterByWindow(mapOhlcToChart(raw), windowMs);
+        cache.current[range] = fetched;
+        setChartData(fetched);
       } catch (err) {
-        if (!cancelled) {
-          setError(err?.message || "Error loading chart");
-          setChartData([]);
-        }
+        console.error("useLiveChart history fetch error:", err);
+        if (!cancelled) setChartData([]);
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        if (!cancelled) setIsLoading(false);
       }
     };
 
     loadHistory();
+    return () => { cancelled = true; };
+  }, [symbol, range]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [symbol, range, intervalMinutes]);
-
+  // ── Effect C: seed master caches from live-context on mount / symbol change ─
+  // Also resets all per-symbol state so switching coins is clean.
   useEffect(() => {
-    if (!normalizedSymbol || !range || intervalMinutes === undefined) {
-      return undefined;
+    if (!symbol) return undefined;
+
+    // Full reset whenever the symbol changes.
+    cache.current          = { ...EMPTY_CACHE };
+    lastLiveKeyRef.current = null;
+
+    // Show a spinner while the first live-context payload is in flight, but
+    // only if the current range is a short-term one (OHLC Effect B manages its
+    // own loading state independently).
+    if (SHORT_TERM_RANGES.has(rangeRef.current)) {
+      setIsLoading(true);
     }
 
-    const socket = new WebSocket(`${process.env.REACT_APP_URL}/ws`);
+    let cancelled = false;
 
-    socket.onmessage = (event) => {
+    const loadLiveContext = async () => {
       try {
-        const tick = JSON.parse(event.data);
-        if (normalizeSymbol(tick.symbol) !== normalizedSymbol) {
-          return;
-        }
-        setChartData((prev) => applyLiveTick(prev, tick, range, intervalMinutes));
+        const ctx = await fetchLiveContext(symbol);
+        if (cancelled) return;
+
+        cache.current.masterTicks      = mapTicksToChart(
+          Array.isArray(ctx.ticks)     ? ctx.ticks     : []
+        );
+        cache.current.master15sCandles = mapOhlcToChart(
+          Array.isArray(ctx.candles15s) ? ctx.candles15s : []
+        );
+
+        // Populate the chart immediately if the user is on a short-term range.
+        updateShortTermChart();
       } catch (err) {
-        console.error("Live chart tick parse error:", err);
+        console.warn("useLiveChart: live-context fetch failed:", err);
+      } finally {
+        // Only clear our own loading flag — OHLC Effect B clears its own.
+        if (!cancelled && SHORT_TERM_RANGES.has(rangeRef.current)) {
+          setIsLoading(false);
+        }
       }
     };
 
-    socket.onerror = (err) => {
-      console.error("Live chart WebSocket error:", err);
-    };
+    loadLiveContext();
+    return () => { cancelled = true; };
+  }, [symbol, updateShortTermChart]);
 
-    return () => {
-      socket.close();
-    };
-  }, [normalizedSymbol, range, intervalMinutes]);
+  // ── Effect D: WebSocket tick → dual-write to master caches + OHLC wiggle ──
+  useEffect(() => {
+    if (!liveTick) return;
+    if (normalizeSymbol(liveTick.symbol) !== normalizedSymbol) return;
 
-  return { chartData, loading, error };
+    const price = getTickMidPrice(liveTick);
+    if (price == null || Number.isNaN(price)) return;
+
+    const timestamp = getLiveTickTimestampMs(liveTick);
+    const liveKey   = `${timestamp}|${price}`;
+    if (lastLiveKeyRef.current === liveKey) return;
+    lastLiveKeyRef.current = liveKey;
+
+    const bid      = liveTick.bid == null ? null : Number(liveTick.bid);
+    const ask      = liveTick.ask == null ? null : Number(liveTick.ask);
+    const newPoint = { timestamp, price, bid, ask };
+
+    // ── Master ticks: append + prune to 15-min rolling window ────────────────
+    const cutoff15m       = timestamp - FIFTEEN_MIN_MS;
+    const prevTicks       = cache.current.masterTicks || [];
+    const prunedTicks     = prevTicks.filter((t) => t.timestamp >= cutoff15m);
+    const lastTickTs      = prunedTicks.length > 0
+      ? prunedTicks[prunedTicks.length - 1].timestamp
+      : 0;
+    cache.current.masterTicks = timestamp > lastTickTs
+      ? [...prunedTicks, newPoint]
+      : prunedTicks;
+
+    // ── Master 15s candles: bucket-aware update / append ──────────────────────
+    const c15s   = cache.current.master15sCandles || [];
+    const bucket = Math.floor(timestamp / FIFTEEN_S_BUCKET_MS) * FIFTEEN_S_BUCKET_MS;
+    const last15 = c15s.length > 0 ? c15s[c15s.length - 1] : null;
+
+    if (last15?.timestamp === bucket) {
+      cache.current.master15sCandles = [
+        ...c15s.slice(0, -1),
+        {
+          ...last15,
+          close: price,
+          high:  Math.max(last15.high, price),
+          low:   Math.min(last15.low,  price),
+        },
+      ];
+    } else if (last15 == null || bucket > last15.timestamp) {
+      cache.current.master15sCandles = [
+        ...c15s,
+        { timestamp: bucket, open: price, high: price, low: price, close: price },
+      ];
+    }
+
+    // ── Long OHLC ranges: wiggle the last candle's close / high / low ─────────
+    LIVE_OHLC_RANGES.forEach((ohlcRange) => {
+      const candles = cache.current[ohlcRange];
+      if (!candles || candles.length === 0) return;
+      const last        = candles[candles.length - 1];
+      const updatedHigh = Math.max(last.high, price);
+      const updatedLow  = Math.min(last.low,  price);
+      if (price === last.close && updatedHigh === last.high && updatedLow === last.low) return;
+      cache.current[ohlcRange] = [
+        ...candles.slice(0, -1),
+        { ...last, close: price, high: updatedHigh, low: updatedLow },
+      ];
+    });
+
+    // ── Drive a re-render for the currently visible range ─────────────────────
+    if (SHORT_TERM_RANGES.has(range)) {
+      updateShortTermChart();
+    } else if (cache.current[range] != null) {
+      setChartData(cache.current[range]);
+    }
+  }, [liveTick, range, normalizedSymbol, updateShortTermChart]);
+
+  return { chartData, isLoading, chartType, range, setRange, liveTick };
 };
 
 export default useLiveChart;

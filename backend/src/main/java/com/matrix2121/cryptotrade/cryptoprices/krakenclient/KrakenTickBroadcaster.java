@@ -1,9 +1,9 @@
-package com.matrix2121.cryptotrade.cryptoPrices.krakenClient;
+package com.matrix2121.cryptotrade.cryptoprices.krakenclient;
 
 import org.springframework.stereotype.Service;
 import org.springframework.web.socket.TextMessage;
 
-import com.matrix2121.cryptotrade.cryptoPrices.broadcaster.BroadcasterImpl;
+import com.matrix2121.cryptotrade.cryptoprices.broadcaster.BroadcasterImpl;
 
 @Service
 public class KrakenTickBroadcaster {

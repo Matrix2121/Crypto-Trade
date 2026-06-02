@@ -1,4 +1,4 @@
-package com.matrix2121.cryptotrade.cryptoPrices.initialStream;
+package com.matrix2121.cryptotrade.cryptoprices.initialStream;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -9,7 +9,7 @@ import java.util.Map;
 import org.springframework.stereotype.Service;
 
 import com.matrix2121.cryptotrade.context.CryptoPricesContext;
-import com.matrix2121.cryptotrade.cryptoPrices.krakenClient.model.PriceTick;
+import com.matrix2121.cryptotrade.cryptoprices.krakenclient.model.PriceTick;
 
 @Service
 public class PricesService {

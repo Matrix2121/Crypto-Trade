@@ -1,8 +1,12 @@
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import usePrices from "../../hooks/usePrices";
+import useGlobalMarketStats from "../../hooks/useGlobalMarketStats";
 import FlashPrice from "../../components/FlashPrice";
-import { getCryptoIconPath } from "../../utils/getCryptoIconPath";
+import {
+  getCryptoIconPath,
+  handleCryptoIconError,
+} from "../../utils/getCryptoIconPath";
 import "./Market.css";
 
 const TABS = [
@@ -20,7 +24,7 @@ function formatPrice(value) {
 }
 
 function formatChange(value) {
-  if (value == null || Number.isNaN(value)) return "—";
+  if (value == null || Number.isNaN(value)) return "-";
   const sign = value > 0 ? "+" : "";
   return `${sign}${value.toFixed(2)}%`;
 }
@@ -55,36 +59,28 @@ function computeTickChange(current, previous) {
   return change;
 }
 
-async function fetch24hChange(symbol) {
-  const token = localStorage.getItem("jwt");
-  if (!token) return null;
+function getChangeClass(change24h) {
+  if (change24h == null || Number.isNaN(change24h)) return "neutral";
+  if (change24h > 0) return "positive";
+  if (change24h < 0) return "negative";
+  return "neutral";
+}
 
-  const pathSymbol = symbol.replace("/", "-");
-  const response = await fetch(
-    `${process.env.REACT_APP_URL}/api/history/${pathSymbol}?interval=1440`,
-    { headers: { Authorization: `Bearer ${token}` } }
-  );
-
-  if (!response.ok) return null;
-
-  const candles = await response.json();
-  if (!Array.isArray(candles) || candles.length < 2) return null;
-
-  const prev = Number(candles[candles.length - 2].closePrice);
-  const latest = Number(candles[candles.length - 1].closePrice);
-  if (!prev || Number.isNaN(prev) || Number.isNaN(latest)) return null;
-
-  return ((latest - prev) / prev) * 100;
+function compareByRank(a, b) {
+  const rankA = a.rank ?? Number.POSITIVE_INFINITY;
+  const rankB = b.rank ?? Number.POSITIVE_INFINITY;
+  if (rankA !== rankB) return rankA - rankB;
+  return a.symbol.localeCompare(b.symbol);
 }
 
 const Market = () => {
   const navigate = useNavigate();
   const prices = usePrices();
   const deferredPrices = useDeferredValue(prices);
+  const { globalStats } = useGlobalMarketStats();
 
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("all");
-  const [changes, setChanges] = useState({});
   const [lastUpdate, setLastUpdate] = useState(new Date());
 
   const tickSignature = useMemo(
@@ -97,48 +93,22 @@ const Market = () => {
     setLastUpdate(new Date());
   }, [tickSignature, prices.length]);
 
-  const symbolKey = [...new Set(deferredPrices.map((p) => p.symbol))].sort().join("|");
-
-  useEffect(() => {
-    if (!symbolKey) return;
-
-    let cancelled = false;
-    const symbols = symbolKey.split("|");
-
-    const loadChanges = async () => {
-      const entries = await Promise.all(
-        symbols.map(async (sym) => {
-          try {
-            const change = await fetch24hChange(sym);
-            return [sym, change];
-          } catch {
-            return [sym, null];
-          }
-        })
-      );
-
-      if (!cancelled) {
-        setChanges(Object.fromEntries(entries));
-      }
-    };
-
-    loadChanges();
-    return () => {
-      cancelled = true;
-    };
-  }, [symbolKey]);
-
   const rows = useMemo(() => {
     const query = search.trim().toLowerCase();
 
     let list = deferredPrices
-      .filter((tick) => tick && tick.symbol)
+      .filter((tick) => tick?.symbol)
       .map((tick) => {
         const base = tick.symbol.split("/")[0];
+        const baseAsset = base.toLowerCase();
+        const stats = globalStats[baseAsset] || {};
+
         return {
           ...tick,
           base,
-          change24h: changes[tick.symbol] ?? null,
+          rank: stats.rank,
+          marketCap: stats.marketCap,
+          change24h: stats.change24h ?? null,
           bidTickChange: computeTickChange(tick.bid, tick.previousBid),
           askTickChange: computeTickChange(tick.ask, tick.previousAsk),
         };
@@ -161,11 +131,11 @@ const Market = () => {
         .filter((row) => row.change24h != null && row.change24h < 0)
         .sort((a, b) => a.change24h - b.change24h);
     } else {
-      list = [...list].sort((a, b) => a.symbol.localeCompare(b.symbol));
+      list = [...list].sort(compareByRank);
     }
 
     return list;
-  }, [deferredPrices, search, activeTab, changes]);
+  }, [deferredPrices, search, activeTab, globalStats]);
 
   const rowTarget = (symbol) => `/market/${symbol.replace("/", "-")}`;
 
@@ -222,8 +192,10 @@ const Market = () => {
         <table className="market-table">
           <thead>
             <tr>
+              <th className="col-rank">#</th>
               <th className="col-asset">Asset</th>
               <th className="col-bid-ask">Bid / Ask</th>
+              <th className="col-mcap">Market Cap</th>
               <th className="col-change">24h Change</th>
               <th className="col-updated">Updated</th>
             </tr>
@@ -231,18 +203,14 @@ const Market = () => {
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={4} className="market-empty">
+                <td colSpan={6} className="market-empty">
                   No markets match your search.
                 </td>
               </tr>
             ) : (
               rows.map((row) => {
-                const changeClass =
-                  row.change24h == null
-                    ? "neutral"
-                    : row.change24h >= 0
-                      ? "positive"
-                      : "negative";
+                const changeClass = getChangeClass(row.change24h);
+                const target = rowTarget(row.symbol);
 
                 return (
                   <tr
@@ -256,25 +224,23 @@ const Market = () => {
                       }
                     }}
                     tabIndex={0}
-                    role="link"
                     aria-label={`Open ${row.symbol} trading page`}
                   >
+                    <td className="col-rank mono">{row.rank ?? "-"}</td>
                     <td className="col-asset">
                       <div className="asset-cell">
                         <img
                           className="asset-icon"
-                          src={getCryptoIconPath(row.symbol, 20)}
+                          src={getCryptoIconPath(row.symbol)}
                           alt=""
                           width={20}
                           height={20}
-                          onError={(e) => {
-                            e.currentTarget.onerror = null;
-                            e.currentTarget.src =
-                              "https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/32/icon/generic.png";
-                          }}
+                          onError={handleCryptoIconError}
                         />
                         <div className="asset-names">
-                          <span className="asset-base" title={row.symbol}>{row.base}</span>
+                          <Link className="asset-base" to={target} title={row.symbol} onClick={(e) => e.stopPropagation()}>
+                            {row.base}
+                          </Link>
                         </div>
                       </div>
                     </td>
@@ -305,6 +271,11 @@ const Market = () => {
                           </FlashPrice>
                         </div>
                       </div>
+                    </td>
+                    <td className="col-mcap mono">
+                      {row.marketCap
+                        ? `$${row.marketCap.toLocaleString("en-US")}`
+                        : "-"}
                     </td>
                     <td className={`col-change mono ${changeClass}`}>
                       {formatChange(row.change24h)}

@@ -8,16 +8,6 @@ const LandingPage = () => {
   const navigate = useNavigate();
   const { setUser } = useContext(AppContext);
 
-  const handleLogin = () => {
-    console.log("Initiating OAuth2");
-    setUser({
-      id: 1,
-      username: "DemoUser",
-      provider: "mock-oauth2",
-    });
-    navigate("/market");
-  };
-
   const handleGoogleSuccess = async (credentialResponse) => {
     console.log("1. Google handed React this Token:", credentialResponse.credential);
 
@@ -68,9 +58,6 @@ const LandingPage = () => {
               onError={handleGoogleError}
               useOneTap
             />
-            <button className="landing-login" onClick={handleLogin} type="button">
-              Login with Provider
-            </button>
             </div>
           </div>
         </div>
