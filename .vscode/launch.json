@@ -1,14 +1,20 @@
 {
+  "version": "0.2.0",
   "configurations": [
-    {
-      "type": "java",
-      "name": "Spring Boot-CryptotradeApplication<cryptotrade>",
-      "request": "launch",
-      "cwd": "${workspaceFolder}",
-      "mainClass": "com.matrix2121.cryptotrade.CryptotradeApplication",
-      "projectName": "cryptotrade",
-      "args": "",
-      "envFile": "${workspaceFolder}/.env"
-    }
+      {
+          "type": "java",
+          "name": "Launch Backend",
+          "request": "launch",
+          "mainClass": "com.matrix2121.cryptotrade.CryptotradeApplication",
+          "env": {
+              "DB_USER": "postgres",
+              "DB_PASSWORD": "root",
+              "DB_NAME": "postgres",
+              "DB_HOST": "localhost",
+              "DB_PORT": "5433",
+              "JWT_SECRET": "change-me-change-me-change-me-change-me-change-me-change-me-32bytes-min",
+              "GOOGLE_CLIENT_ID": "569243080322-gcbva79oge5qrbqog892f3uc3554o9qk.apps.googleusercontent.com"
+          }
+      }
   ]
 }
