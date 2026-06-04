@@ -10,7 +10,7 @@ const useAssets = () => {
     const token = localStorage.getItem("jwt");
     if (!token) return;
 
-    fetch(`${process.env.REACT_APP_URL}/api/assets/${user.id}`, {
+    fetch(`${process.env.REACT_APP_API_URL}/api/assets/${user.id}`, {
       headers: {
         Authorization: "Bearer " + token,
       },

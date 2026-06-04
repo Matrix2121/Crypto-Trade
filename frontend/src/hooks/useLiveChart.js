@@ -101,7 +101,7 @@ function filterByWindow(data, windowMs) {
 
 async function fetchRangeHistory(symbol, range) {
   const pathSegment = toApiPathSymbol(symbol);
-  const url = `${process.env.REACT_APP_URL}/api/history/${pathSegment}?range=${encodeURIComponent(range)}`;
+  const url = `${process.env.REACT_APP_API_URL}/api/history/${pathSegment}?range=${encodeURIComponent(range)}`;
   const response = await fetch(url);
   if (!response.ok) throw new Error(
     `Failed to fetch chart data for ${pathSegment} range=${range} (${response.status})`
@@ -113,7 +113,7 @@ async function fetchRangeHistory(symbol, range) {
 
 async function fetchLiveContext(symbol) {
   const pathSegment = toApiPathSymbol(symbol);
-  const url = `${process.env.REACT_APP_URL}/api/history/live-context/${pathSegment}`;
+  const url = `${process.env.REACT_APP_API_URL}/api/history/live-context/${pathSegment}`;
   const response = await fetch(url);
   if (!response.ok) throw new Error(
     `Failed to fetch live context for ${pathSegment} (${response.status})`

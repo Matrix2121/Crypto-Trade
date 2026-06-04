@@ -103,7 +103,7 @@ const useHistory = (symbol, range) => {
       setError(null);
 
       const pathSymbol = symbol.replace("/", "");
-      const fetchUrl = `${process.env.REACT_APP_URL}/api/history/${pathSymbol}/ohlc?interval=${interval}`;
+      const fetchUrl = `${process.env.REACT_APP_API_URL}/api/history/${pathSymbol}/ohlc?interval=${interval}`;
 
       try {
         const response = await fetch(fetchUrl);

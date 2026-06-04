@@ -16,7 +16,7 @@ const Sidebar = () => {
     setIsSyncing(true);
     try {
       const response = await fetch(
-        `${process.env.REACT_APP_URL}/api/history/sync`,
+        `${process.env.REACT_APP_API_URL}/api/history/sync`,
         { method: "POST" }
       );
       if (!response.ok) {

@@ -46,7 +46,7 @@ const usePrices = () => {
   const [prices, setPrices] = useState({});
 
   useEffect(() => {
-    fetch(`${process.env.REACT_APP_URL}/api/prices`)
+    fetch(`${process.env.REACT_APP_API_URL}/api/prices`)
       .then((res) => res.json())
       .then((data) => {
         const priceMap = {};
@@ -59,7 +59,7 @@ const usePrices = () => {
   }, []);
 
   useEffect(() => {
-    const socket = new WebSocket(`${process.env.REACT_APP_URL}/ws`);
+    const socket = new WebSocket(`${process.env.REACT_APP_API_URL}/ws`);
 
     socket.onopen = () => {
       console.log("Connected to WebSocket");
