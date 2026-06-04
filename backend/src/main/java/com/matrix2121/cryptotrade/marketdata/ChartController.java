@@ -1,4 +1,4 @@
-package com.matrix2121.cryptotrade.history;
+package com.matrix2121.cryptotrade.marketdata;
 
 import java.util.List;
 import java.util.Map;
@@ -13,22 +13,22 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.matrix2121.cryptotrade.marketdata.dto.OhlcDto;
+import com.matrix2121.cryptotrade.marketdata.dto.TickDto;
+
 @RestController
 @RequestMapping("/api/history")
-public class HistoryController {
+public class ChartController {
 
-    private final ChartHistoryService chartHistoryService;
     private final ChartDataService chartDataService;
     private final MarketDataSyncService marketDataSyncService;
     private final LiveTickCacheService liveTickCacheService;
     private final AtomicBoolean syncInProgress = new AtomicBoolean(false);
 
-    public HistoryController(
-            ChartHistoryService chartHistoryService,
+    public ChartController(
             ChartDataService chartDataService,
             MarketDataSyncService marketDataSyncService,
             LiveTickCacheService liveTickCacheService) {
-        this.chartHistoryService = chartHistoryService;
         this.chartDataService = chartDataService;
         this.marketDataSyncService = marketDataSyncService;
         this.liveTickCacheService = liveTickCacheService;
@@ -47,22 +47,6 @@ public class HistoryController {
             return ResponseEntity.badRequest().build();
         }
         return ResponseEntity.ok(chartDataService.getByRange(formattedSymbol, range));
-    }
-
-    @GetMapping("/{symbol}/ticks")
-    public ResponseEntity<List<TickDto>> getTicks(
-            @PathVariable String symbol,
-            @RequestParam(defaultValue = "5") int minutes) {
-        String formattedSymbol = symbol.replace("-", "/").toUpperCase();
-        return ResponseEntity.ok(chartHistoryService.getTicks(formattedSymbol, minutes));
-    }
-
-    @GetMapping("/{symbol}/ohlc")
-    public ResponseEntity<List<OhlcDto>> getOhlc(
-            @PathVariable String symbol,
-            @RequestParam int interval) {
-        String formattedSymbol = symbol.replace("-", "/").toUpperCase();
-        return ResponseEntity.ok(chartHistoryService.getOhlc(formattedSymbol, interval));
     }
 
     /**

@@ -1,8 +1,12 @@
-package com.matrix2121.cryptotrade.history;
+package com.matrix2121.cryptotrade.marketdata;
 
 import java.util.List;
 
 import org.springframework.stereotype.Service;
+
+import com.matrix2121.cryptotrade.marketdata.dto.OhlcDto;
+import com.matrix2121.cryptotrade.marketdata.dto.TickDto;
+import com.matrix2121.cryptotrade.marketdata.persistence.OhlcDataRepository;
 
 import lombok.extern.slf4j.Slf4j;
 

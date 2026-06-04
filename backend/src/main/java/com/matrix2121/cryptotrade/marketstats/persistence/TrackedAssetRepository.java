@@ -1,4 +1,4 @@
-package com.matrix2121.cryptotrade.history;
+package com.matrix2121.cryptotrade.marketstats.persistence;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;

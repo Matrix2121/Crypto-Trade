@@ -13,7 +13,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.matrix2121.cryptotrade.exceptions.KrakenApiException;
-import com.matrix2121.cryptotrade.history.TickDto;
+import com.matrix2121.cryptotrade.marketdata.dto.TickDto;
 
 @Component
 public class KrakenTradesClient {

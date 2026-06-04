@@ -1,8 +1,7 @@
-package com.matrix2121.cryptotrade.history;
+package com.matrix2121.cryptotrade.marketstats;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.util.HashMap;
 import java.util.Map;
 
 import org.springframework.scheduling.annotation.Scheduled;
@@ -10,12 +9,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.matrix2121.cryptotrade.marketdata.TrackedSymbols;
+import com.matrix2121.cryptotrade.marketstats.persistence.TrackedAsset;
+import com.matrix2121.cryptotrade.marketstats.persistence.TrackedAssetRepository;
 
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
-public class MarketStatsService {
+public class MarketStatsSyncService {
 
     private static final String COINGECKO_MARKETS_URL =
             "https://api.coingecko.com/api/v3/coins/markets"
@@ -23,28 +25,13 @@ public class MarketStatsService {
 
     private final TrackedAssetRepository trackedAssetRepository;
     private final RestTemplate restTemplate = new RestTemplate();
+    private final Map<String, String> baseToSymbol = TrackedSymbols.baseToSymbol();
 
-    /**
-     * Maps lowercase base asset (e.g. "btc") → full tracked symbol (e.g. "BTC/USD")
-     * so we can match CoinGecko's per-coin {@code symbol} field to our repository keys.
-     */
-    private final Map<String, String> baseToSymbol;
-
-    public MarketStatsService(TrackedAssetRepository trackedAssetRepository) {
+    public MarketStatsSyncService(TrackedAssetRepository trackedAssetRepository) {
         this.trackedAssetRepository = trackedAssetRepository;
-        this.baseToSymbol = buildBaseToSymbolMap();
     }
 
-    private static Map<String, String> buildBaseToSymbolMap() {
-        Map<String, String> map = new HashMap<>();
-        for (String symbol : MarketDataSyncService.TRACKED_SYMBOLS) {
-            String base = symbol.split("/")[0].toLowerCase();
-            map.put(base, symbol);
-        }
-        return map;
-    }
-
-    @Scheduled(fixedRate = 3_600_000)
+    @Scheduled(fixedRate = 1_800_000)
     public void syncMarketStats() {
         log.debug("Starting CoinGecko market stats sync");
         try {
@@ -69,7 +56,6 @@ public class MarketStatsService {
                 asset.setMarketCap(nullableLong(coin, "market_cap"));
                 asset.setCirculatingSupply(nullableLong(coin, "circulating_supply"));
 
-                // ATH: only update if the CoinGecko value is higher than what we already have.
                 BigDecimal geckoAth = nullableBigDecimal(coin, "ath");
                 if (geckoAth != null
                         && (asset.getAllTimeHigh() == null
@@ -88,8 +74,6 @@ public class MarketStatsService {
             log.error("CoinGecko market stats sync failed: {}", e.getMessage(), e);
         }
     }
-
-    // ── helpers ─────────────────────────────────────────────────────────────────
 
     private static Integer nullableInt(JsonNode node, String field) {
         JsonNode f = node.path(field);

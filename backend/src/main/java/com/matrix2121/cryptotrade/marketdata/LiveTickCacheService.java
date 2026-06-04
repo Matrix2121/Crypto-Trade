@@ -1,4 +1,4 @@
-package com.matrix2121.cryptotrade.history;
+package com.matrix2121.cryptotrade.marketdata;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -9,6 +9,9 @@ import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 
 import org.springframework.stereotype.Service;
+
+import com.matrix2121.cryptotrade.marketdata.dto.OhlcDto;
+import com.matrix2121.cryptotrade.marketdata.dto.TickDto;
 
 /**
  * Pure in-memory store for the rolling 15-minute tick window and derived 15-second OHLC candles.
@@ -30,20 +33,12 @@ public class LiveTickCacheService {
     private final Map<String, ConcurrentNavigableMap<Long, OhlcDto>> candle15sCache =
             new ConcurrentHashMap<>();
 
-    // ── Write ──────────────────────────────────────────────────────────────────
-
-    /**
-     * Ingests a live tick: stores it, updates the active 15-second candle, then prunes
-     * both maps to remove entries older than the 15-minute window.
-     */
     public void addLiveTick(String symbol, TickDto tick) {
         long ts = tick.timestamp();
 
-        // 1. Store the raw tick.
         tickCache.computeIfAbsent(symbol, k -> new ConcurrentSkipListMap<>())
                  .put(ts, tick);
 
-        // 2. Update (or create) the 15-second candle that owns this timestamp.
         long bucket = (ts / BUCKET_MS) * BUCKET_MS;
         candle15sCache.computeIfAbsent(symbol, k -> new ConcurrentSkipListMap<>())
                       .compute(bucket, (k, existing) -> {
@@ -59,7 +54,6 @@ public class LiveTickCacheService {
                                   price);
                       });
 
-        // 3. Prune both maps: discard anything older than the 15-minute window.
         long cutoff = System.currentTimeMillis() - WINDOW_MS;
 
         ConcurrentNavigableMap<Long, TickDto> ticks = tickCache.get(symbol);
@@ -73,11 +67,6 @@ public class LiveTickCacheService {
         }
     }
 
-    // ── Read ───────────────────────────────────────────────────────────────────
-
-    /**
-     * Returns all raw ticks for {@code symbol} whose timestamp is in [start, end).
-     */
     public List<TickDto> getTicksInWindow(String symbol, long start, long end) {
         ConcurrentNavigableMap<Long, TickDto> map = tickCache.get(symbol);
         if (map == null) {
@@ -86,9 +75,6 @@ public class LiveTickCacheService {
         return new ArrayList<>(map.subMap(start, end).values());
     }
 
-    /**
-     * Returns all raw ticks currently held in the 15-minute window for {@code symbol}.
-     */
     public List<TickDto> getAllTicks(String symbol) {
         ConcurrentNavigableMap<Long, TickDto> map = tickCache.get(symbol);
         if (map == null) {
@@ -97,9 +83,6 @@ public class LiveTickCacheService {
         return new ArrayList<>(map.values());
     }
 
-    /**
-     * Returns all 15-second candles currently held for {@code symbol}.
-     */
     public List<OhlcDto> getCandles15s(String symbol) {
         ConcurrentNavigableMap<Long, OhlcDto> map = candle15sCache.get(symbol);
         if (map == null) {

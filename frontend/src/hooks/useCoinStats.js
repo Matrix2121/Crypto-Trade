@@ -1,14 +1,18 @@
 import { useEffect, useState } from "react";
 import { getBaseAsset } from "../utils/getCryptoIconPath";
 
+function toPathSymbol(symbol) {
+  return String(symbol).replace("/", "-");
+}
+
 function mapMarketData(data) {
   return {
-    marketCap: data.market_cap,
-    rank: data.market_cap_rank,
-    supply: data.circulating_supply,
-    volume: data.total_volume,
-    ath: data.ath,
-    athDate: data.ath_date,
+    marketCap: data.marketCap ?? null,
+    rank: data.marketRank ?? null,
+    supply: data.circulatingSupply ?? null,
+    volume: null,
+    ath: data.allTimeHigh != null ? Number(data.allTimeHigh) : null,
+    athDate: data.athTimestamp ?? null,
   };
 }
 
@@ -30,20 +34,21 @@ const useCoinStats = (symbol) => {
 
     const fetchStats = async () => {
       try {
-        const url = `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&symbols=${encodeURIComponent(baseSymbol)}`;
+        const pathSymbol = toPathSymbol(symbol);
+        const url = `${process.env.REACT_APP_API_URL}/api/market-stats/${encodeURIComponent(pathSymbol)}`;
         const response = await fetch(url);
         if (!response.ok) {
-          throw new Error(`CoinGecko request failed (${response.status})`);
+          if (response.status === 404) {
+            if (!cancelled) setStats(null);
+            return;
+          }
+          throw new Error(`Market stats request failed (${response.status})`);
         }
 
-        const json = await response.json();
+        const data = await response.json();
         if (cancelled) return;
 
-        if (Array.isArray(json) && json.length > 0) {
-          setStats(mapMarketData(json[0]));
-        } else {
-          setStats(null);
-        }
+        setStats(mapMarketData(data));
       } catch (err) {
         console.error("useCoinStats fetch error:", err);
         if (!cancelled) {

@@ -1,4 +1,4 @@
-package com.matrix2121.cryptotrade.history;
+package com.matrix2121.cryptotrade.marketdata.dto;
 
 import java.math.BigDecimal;
 

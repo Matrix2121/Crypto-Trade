@@ -1,4 +1,4 @@
-package com.matrix2121.cryptotrade.history;
+package com.matrix2121.cryptotrade.marketdata;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -11,6 +11,10 @@ import java.util.stream.Collectors;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import com.matrix2121.cryptotrade.marketdata.dto.TickDto;
+import com.matrix2121.cryptotrade.marketdata.persistence.OhlcData;
+import com.matrix2121.cryptotrade.marketdata.persistence.OhlcDataRepository;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -43,15 +47,13 @@ public class TickAggregationService {
         this.liveTickCacheService = liveTickCacheService;
     }
 
-    // ── Level 1: RAM ticks → 5m ──────────────────────────────────────────────
-
     @Scheduled(cron = "0 0/5 * * * ?")
     @Transactional
     public void aggregate5m() {
         long now   = System.currentTimeMillis();
         long start = now - FIVE_MIN_MS;
 
-        for (String symbol : MarketDataSyncService.TRACKED_SYMBOLS) {
+        for (String symbol : TrackedSymbols.SYMBOLS) {
             try {
                 List<TickDto> windowTicks =
                         liveTickCacheService.getTicksInWindow(symbol, start, now);
@@ -66,10 +68,7 @@ public class TickAggregationService {
                 log.error("5m aggregation failed for {}: {}", symbol, e.getMessage(), e);
             }
         }
-        // No DB tick cleanup needed — the RAM cache self-prunes to 15 minutes.
     }
-
-    // ── Level 2: 5m → 1h ────────────────────────────────────────────────────
 
     @Scheduled(cron = "0 0 * * * ?")
     @Transactional
@@ -78,16 +77,12 @@ public class TickAggregationService {
         aggregateOhlcFromOhlc("5m", "1h", MS_PER_HOUR, now - MS_PER_HOUR, now);
     }
 
-    // ── Level 3: 1h → 6h ────────────────────────────────────────────────────
-
     @Scheduled(cron = "0 0 0/6 * * ?")
     @Transactional
     public void aggregate6h() {
         long now = System.currentTimeMillis();
         aggregateOhlcFromOhlc("1h", "6h", SIX_HOUR_MS, now - SIX_HOUR_MS, now);
     }
-
-    // ── Level 4: 6h → 1d ────────────────────────────────────────────────────
 
     @Scheduled(cron = "0 0 0 * * ?")
     @Transactional
@@ -96,8 +91,6 @@ public class TickAggregationService {
         aggregateOhlcFromOhlc("6h", "1d", MS_PER_DAY, now - MS_PER_DAY, now);
     }
 
-    // ── Generic cascade helper ───────────────────────────────────────────────
-
     private void aggregateOhlcFromOhlc(
             String sourceInterval,
             String targetInterval,
@@ -105,7 +98,7 @@ public class TickAggregationService {
             long since,
             long now) {
 
-        for (String symbol : MarketDataSyncService.TRACKED_SYMBOLS) {
+        for (String symbol : TrackedSymbols.SYMBOLS) {
             try {
                 List<OhlcData> source = ohlcDataRepository
                         .findBySymbolAndIntervalStringAndTimestampBetweenOrderByTimestampAsc(
@@ -124,8 +117,6 @@ public class TickAggregationService {
             }
         }
     }
-
-    // ── Candle builders ──────────────────────────────────────────────────────
 
     private List<OhlcData> buildCandlesFromTicks(
             String symbol, String intervalString, long windowMs, List<TickDto> ticks) {
@@ -187,8 +178,6 @@ public class TickAggregationService {
                 symbol, targetInterval, windowStart,
                 first.getOpen(), high, low, last.getClose());
     }
-
-    // ── Storage helper (delete-then-insert within window) ───────────────────
 
     private void replaceOhlcInRange(
             String symbol, String intervalString, long startMs, long endMs,
