@@ -59,7 +59,8 @@ const usePrices = () => {
   }, []);
 
   useEffect(() => {
-    const socket = new WebSocket(`${process.env.REACT_APP_API_URL}/ws`);
+    const wsBaseUrl = process.env.REACT_APP_API_URL.replace(/^http/, 'ws');
+    const socket = new WebSocket(`${wsBaseUrl}/ws`);
 
     socket.onopen = () => {
       console.log("Connected to WebSocket");
