@@ -7,8 +7,21 @@ const useAssets = () => {
 
   useEffect(() => {
     if (!user) return;
-    fetch(`${process.env.REACT_APP_URL}/api/assets/${user.id}`)
+    const token = localStorage.getItem("jwt");
+    if (!token) return;
+
+    fetch(`${process.env.REACT_APP_API_URL}/api/assets/${user.id}`, {
+      headers: {
+        Authorization: "Bearer " + token,
+      },
+    })
       .then((res) => {
+        if (res.status === 401 || res.status === 403) {
+          localStorage.removeItem("jwt");
+          localStorage.removeItem("username");
+          window.location.href = "/";
+          throw new Error("Unauthorized");
+        }
         if (!res.ok) throw new Error("Fetch failed");
         return res.json();
       })

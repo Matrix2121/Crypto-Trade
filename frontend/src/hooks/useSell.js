@@ -6,13 +6,16 @@ const useSell = () => {
   
   const sell = async (cryptoCode, cryptoAmount) => {
     if (!user) return;
+    const token = localStorage.getItem("jwt");
+    if (!token) throw new Error("Missing auth token");
     try {
       const res = await fetch(
-        `${process.env.REACT_APP_URL}/api/trade/sell/${user.id}`,
+        `${process.env.REACT_APP_API_URL}/api/trade/sell/${user.id}`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            Authorization: "Bearer " + token,
           },
           body: JSON.stringify({ cryptoCode, cryptoAmount }),
         }

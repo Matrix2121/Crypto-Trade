@@ -11,8 +11,14 @@ import com.matrix2121.cryptotrade.exceptions.CryptoNameException;
 public class CryptoPricesContext {
     private static HashMap<String, BigDecimal> bidMap = new HashMap<>();
     private static HashMap<String, BigDecimal> askMap = new HashMap<>();
+    private static HashMap<String, BigDecimal> previousBidMap = new HashMap<>();
+    private static HashMap<String, BigDecimal> previousAskMap = new HashMap<>();
 
     public static void setPrices(String crypto, BigDecimal bid, BigDecimal ask) {
+        if (bidMap.containsKey(crypto)) {
+            previousBidMap.put(crypto, bidMap.get(crypto));
+            previousAskMap.put(crypto, askMap.get(crypto));
+        }
         bidMap.put(crypto, bid);
         askMap.put(crypto, ask);
     }
@@ -29,6 +35,14 @@ public class CryptoPricesContext {
             throw new CryptoNameException("This crypto is not avaliable!");
         }
         return askMap.get(crypto);
+    }
+
+    public static BigDecimal getPreviousBid(String crypto) {
+        return previousBidMap.get(crypto);
+    }
+
+    public static BigDecimal getPreviousAsk(String crypto) {
+        return previousAskMap.get(crypto);
     }
 
     public static HashMap<String, BigDecimal> getBidMap() {

@@ -1,4 +1,4 @@
-package com.matrix2121.cryptotrade.cryptoPrices.initialStream;
+package com.matrix2121.cryptotrade.cryptoprices.initialStream;
 
 import java.util.List;
 
@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.matrix2121.cryptotrade.cryptoPrices.krakenClient.model.PriceTick;
+import com.matrix2121.cryptotrade.cryptoprices.krakenclient.model.PriceTick;
 
 @RestController
 @RequestMapping("/api/prices")

@@ -6,13 +6,33 @@ import "./Sidebar.css";
 
 const Sidebar = () => {
   const navigate = useNavigate();
-  const { user, setUser, balance } = useContext(AppContext);
+  const { user, logout, balance } = useContext(AppContext);
   const [isExpanded, setIsExpanded] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   useBalance();
 
+  const handleSyncMarketData = async () => {
+    setIsSyncing(true);
+    try {
+      const response = await fetch(
+        `${process.env.REACT_APP_API_URL}/api/history/sync`,
+        { method: "POST" }
+      );
+      if (!response.ok) {
+        throw new Error(`Sync failed (${response.status})`);
+      }
+      alert("Market data sync started. This may take several minutes.");
+    } catch (err) {
+      console.error("Market data sync error:", err);
+      alert("Failed to start market data sync.");
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const handleLogout = () => {
-    setUser(null);
+    logout();
     navigate("/");
   };
 
@@ -43,10 +63,11 @@ const Sidebar = () => {
             <NavLink
               key={item.to}
               to={item.to}
+              end={item.to === "/market"}
               className={({ isActive }) =>
                 `sidebar-link${isActive ? " active" : ""}`
               }
-              title={!isExpanded ? item.label : undefined}
+              title={isExpanded ? undefined : item.label}
             >
               <span className="sidebar-icon" aria-hidden="true">
                 {item.icon}
@@ -70,6 +91,15 @@ const Sidebar = () => {
               {balance ? `${Number(balance.balance).toFixed(2)}$` : "Loading..."}
             </span>
           </div>
+
+          <button
+            className="sidebar-sync"
+            type="button"
+            onClick={handleSyncMarketData}
+            disabled={isSyncing}
+          >
+            {isSyncing ? "Syncing…" : "Sync market data"}
+          </button>
 
           <button className="sidebar-logout" type="button" onClick={handleLogout}>
             Logout

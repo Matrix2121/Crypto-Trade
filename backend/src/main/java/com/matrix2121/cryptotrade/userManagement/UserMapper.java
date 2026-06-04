@@ -15,6 +15,9 @@ public class UserMapper {
     public static RowMapper<UserModel> mapToUserModel() {
         return (rs, i) -> new UserModel(
                 rs.getLong("id"),
-                rs.getString("username"));
+                rs.getString("username"),
+                rs.getString("email"),
+                rs.getBigDecimal("balance"),
+                rs.getString("picture_url"));
     }
 }

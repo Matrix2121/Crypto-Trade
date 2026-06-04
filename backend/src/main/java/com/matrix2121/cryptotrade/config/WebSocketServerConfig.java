@@ -4,7 +4,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.lang.NonNull;
 import org.springframework.web.socket.config.annotation.*;
 
-import com.matrix2121.cryptotrade.cryptoPrices.broadcaster.BroadcasterImpl;
+import com.matrix2121.cryptotrade.cryptoprices.broadcaster.BroadcasterImpl;
 
 @Configuration
 @EnableWebSocket

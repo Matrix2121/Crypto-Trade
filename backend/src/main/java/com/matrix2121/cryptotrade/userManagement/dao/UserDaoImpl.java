@@ -1,5 +1,6 @@
 package com.matrix2121.cryptotrade.userManagement.dao;
 
+import java.math.BigDecimal;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,9 +22,36 @@ public class UserDaoImpl implements UserDao {
     public Optional<UserModel> getUserByUsername(UserLoginDto userLoginDto) {
         checkIfUserExistsByUsername(userLoginDto.username());
         return Optional.ofNullable(jdbcTemplate.queryForObject(
-                "select * from get_user_by_username(?)",
+                "select id, username, email, balance, picture_url from users where username = ?",
                 UserMapper.mapToUserModel(),
                 userLoginDto.username()));
+    }
+
+    @Override
+    public Optional<UserModel> getUserByEmail(String email) {
+        Integer count = jdbcTemplate.queryForObject(
+                "select count(*) from users where email = ?",
+                Integer.class,
+                email);
+        if (count == null || count == 0) {
+            return Optional.empty();
+        }
+
+        return Optional.ofNullable(jdbcTemplate.queryForObject(
+                "select id, username, balance, email, picture_url from users where email = ?",
+                UserMapper.mapToUserModel(),
+                email));
+    }
+
+    @Override
+    public UserModel createUser(String email, String username, BigDecimal balance, String pictureUrl) {
+        return jdbcTemplate.queryForObject(
+                "insert into users (email, username, balance, picture_url) values (?, ?, ?, ?) returning id, username, balance, email, picture_url",
+                UserMapper.mapToUserModel(),
+                email,
+                username,
+                balance,
+                pictureUrl);
     }
 
     @Override

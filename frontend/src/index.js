@@ -1,23 +1,20 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
-import App from './App';
 import AppProvider from "./context/AppContext";
 import { GoogleOAuthProvider } from '@react-oauth/google';
-import { BrowserRouter } from 'react-router-dom';
+import { RouterProvider } from 'react-router-dom';
+import { router } from './router';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const REACT_APP_GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID;
 
 root.render(
   <React.StrictMode>
-    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
-      <BrowserRouter>
-        <AppProvider>
-          <App />
-        </AppProvider>
-      </BrowserRouter>
+    <GoogleOAuthProvider clientId={REACT_APP_GOOGLE_CLIENT_ID}>
+      <AppProvider>
+        <RouterProvider router={router} />
+      </AppProvider>
     </GoogleOAuthProvider>
   </React.StrictMode>
 );
-
