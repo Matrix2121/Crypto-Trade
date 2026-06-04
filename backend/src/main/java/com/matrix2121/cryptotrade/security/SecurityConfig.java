@@ -38,9 +38,18 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("http://localhost:3000"));
+        
+        // Add your live domains to the VIP list
+        config.setAllowedOrigins(List.of(
+            "http://localhost:3000", 
+            "http://noqtrade.com", 
+            "http://www.noqtrade.com",
+            "https://noqtrade.com",     // Added in advance for when we do SSL!
+            "https://www.noqtrade.com"
+        ));
+        
         config.setAllowedHeaders(List.of("*"));
-        config.setAllowedMethods(List.of("*"));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
