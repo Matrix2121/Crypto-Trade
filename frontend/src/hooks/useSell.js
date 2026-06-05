@@ -10,7 +10,7 @@ const useSell = () => {
     if (!token) throw new Error("Missing auth token");
     try {
       const res = await fetch(
-        `${process.env.REACT_APP_URL}/api/trade/sell/${user.id}`,
+        `${process.env.REACT_APP_API_URL}/api/trade/sell/${user.id}`,
         {
           method: "POST",
           headers: {

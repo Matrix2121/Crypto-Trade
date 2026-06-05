@@ -1,4 +1,4 @@
-package com.matrix2121.cryptotrade.cryptoPrices.krakenClient;
+package com.matrix2121.cryptotrade.cryptoprices.krakenclient;
 
 import jakarta.annotation.PostConstruct;
 import java.net.URI;
@@ -9,12 +9,17 @@ import java.util.concurrent.CompletionStage;
 
 import org.springframework.stereotype.Service;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @Service
 public class KrakenWebSocketConnection implements Listener {
-    private final String WS_URI = "wss://ws.kraken.com/v2";
+
+    private static final String KRAKEN_WS_URI = "wss://ws.kraken.com/v2";
+
     private final KrakenTickerSubscriber subscriber;
     private final KrakenTickerProcessor processor;
-    private WebSocket webSocket;
+    private final HttpClient httpClient = HttpClient.newHttpClient();
 
     public KrakenWebSocketConnection(KrakenTickerSubscriber subscriber, KrakenTickerProcessor processor) {
         this.subscriber = subscriber;
@@ -23,21 +28,22 @@ public class KrakenWebSocketConnection implements Listener {
 
     @PostConstruct
     public void initialize() {
-        HttpClient.newHttpClient()
-                .newWebSocketBuilder()
-                .buildAsync(URI.create(WS_URI), this)
-                .thenAccept(webSocket -> this.webSocket = webSocket);
+        httpClient.newWebSocketBuilder()
+                .buildAsync(URI.create(KRAKEN_WS_URI), this);
     }
 
     @Override
     public void onOpen(WebSocket webSocket) {
-        this.webSocket = webSocket;
         subscriber.subscribe(webSocket);
+        //
         Listener.super.onOpen(webSocket);
     }
 
     @Override
     public void onError(WebSocket ws, Throwable err) {
+        // Kraken may close idle connections; the next app restart or reconnect policy
+        // handles recovery.
+        log.warn("Kraken WebSocket error: {}", err.getMessage());
     }
 
     @Override

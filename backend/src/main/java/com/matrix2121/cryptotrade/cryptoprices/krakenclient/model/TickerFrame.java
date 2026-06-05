@@ -1,4 +1,4 @@
-package com.matrix2121.cryptotrade.cryptoPrices.krakenClient.model;
+package com.matrix2121.cryptotrade.cryptoprices.krakenclient.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 

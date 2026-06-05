@@ -1,4 +1,4 @@
-package com.matrix2121.cryptotrade.cryptoPrices.broadcaster;
+package com.matrix2121.cryptotrade.cryptoprices.broadcaster;
 
 import org.springframework.web.socket.TextMessage;
 
