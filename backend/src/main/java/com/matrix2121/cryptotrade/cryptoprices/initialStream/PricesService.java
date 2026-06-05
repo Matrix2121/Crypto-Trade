@@ -20,13 +20,14 @@ public class PricesService {
             BigDecimal bid = entry.getValue();
             BigDecimal ask = CryptoPricesContext.getAskMap().get(symbol);
             if (ask != null) {
+                Instant updatedAt = CryptoPricesContext.getLastUpdated(symbol);
                 prices.add(new PriceTick(
                         symbol,
                         ask,
                         bid,
                         CryptoPricesContext.getPreviousAsk(symbol),
                         CryptoPricesContext.getPreviousBid(symbol),
-                        Instant.now()));
+                        updatedAt != null ? updatedAt : Instant.EPOCH));
             }
         }
         return prices;

@@ -1,7 +1,9 @@
 package com.matrix2121.cryptotrade.context;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.HashMap;
+import java.util.Map;
 
 import org.springframework.stereotype.Service;
 
@@ -9,18 +11,24 @@ import com.matrix2121.cryptotrade.exceptions.CryptoNameException;
 
 @Service
 public class CryptoPricesContext {
-    private static HashMap<String, BigDecimal> bidMap = new HashMap<>();
-    private static HashMap<String, BigDecimal> askMap = new HashMap<>();
-    private static HashMap<String, BigDecimal> previousBidMap = new HashMap<>();
-    private static HashMap<String, BigDecimal> previousAskMap = new HashMap<>();
+    private static final HashMap<String, BigDecimal> bidMap = new HashMap<>();
+    private static final HashMap<String, BigDecimal> askMap = new HashMap<>();
+    private static final HashMap<String, BigDecimal> previousBidMap = new HashMap<>();
+    private static final HashMap<String, BigDecimal> previousAskMap = new HashMap<>();
+    private static final HashMap<String, Instant> lastUpdatedMap = new HashMap<>();
+    private static volatile long lastAnyTickEpochMs = 0L;
 
-    public static void setPrices(String crypto, BigDecimal bid, BigDecimal ask) {
+    public static void setPrices(String crypto, BigDecimal bid, BigDecimal ask, Instant updatedAt) {
         if (bidMap.containsKey(crypto)) {
             previousBidMap.put(crypto, bidMap.get(crypto));
             previousAskMap.put(crypto, askMap.get(crypto));
         }
         bidMap.put(crypto, bid);
         askMap.put(crypto, ask);
+
+        Instant effectiveUpdatedAt = updatedAt != null ? updatedAt : Instant.now();
+        lastUpdatedMap.put(crypto, effectiveUpdatedAt);
+        lastAnyTickEpochMs = Math.max(lastAnyTickEpochMs, effectiveUpdatedAt.toEpochMilli());
     }
 
     public static BigDecimal getBid(String crypto) {
@@ -45,11 +53,19 @@ public class CryptoPricesContext {
         return previousAskMap.get(crypto);
     }
 
-    public static HashMap<String, BigDecimal> getBidMap() {
+    public static Instant getLastUpdated(String crypto) {
+        return lastUpdatedMap.get(crypto);
+    }
+
+    public static long getLastAnyTickEpochMs() {
+        return lastAnyTickEpochMs;
+    }
+
+    public static Map<String, BigDecimal> getBidMap() {
         return bidMap;
     }
 
-    public static HashMap<String, BigDecimal> getAskMap() {
+    public static Map<String, BigDecimal> getAskMap() {
         return askMap;
     }
 }
