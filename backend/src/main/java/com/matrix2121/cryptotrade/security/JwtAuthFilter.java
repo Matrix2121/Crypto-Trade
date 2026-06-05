@@ -13,6 +13,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.List;
+
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 @Component
 public class JwtAuthFilter extends OncePerRequestFilter {
@@ -45,9 +48,13 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             
             // Validate the token (check expiration, signature, etc.)
             if (jwtService.validateToken(jwt)) {
-                // 4. Tell Spring Security: "This user is valid, let them in!"
+                List<SimpleGrantedAuthority> authorities = new ArrayList<>();
+                if (jwtService.extractIsAdmin(jwt)) {
+                    authorities.add(new SimpleGrantedAuthority("ROLE_ADMIN"));
+                }
+
                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                        userEmail, null, new ArrayList<>()); // Empty roles/authorities
+                        userEmail, null, authorities);
                 
                 authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authToken);

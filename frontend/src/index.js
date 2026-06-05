@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import AppProvider from "./context/AppContext";
+import { FavoritesProvider } from "./context/FavoritesContext";
 import { PricesProvider } from "./context/PricesContext";
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { RouterProvider } from 'react-router-dom';
@@ -14,9 +15,11 @@ root.render(
   <React.StrictMode>
     <GoogleOAuthProvider clientId={REACT_APP_GOOGLE_CLIENT_ID}>
       <AppProvider>
-        <PricesProvider>
-          <RouterProvider router={router} />
-        </PricesProvider>
+        <FavoritesProvider>
+          <PricesProvider>
+            <RouterProvider router={router} />
+          </PricesProvider>
+        </FavoritesProvider>
       </AppProvider>
     </GoogleOAuthProvider>
   </React.StrictMode>

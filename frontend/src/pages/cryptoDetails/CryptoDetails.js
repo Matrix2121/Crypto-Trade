@@ -1,6 +1,7 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import PropTypes from "prop-types";
 import { useNavigate, useParams } from "react-router-dom";
+import { AppContext } from "../../context/AppContext";
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -10,16 +11,20 @@ import {
   YAxis,
   Tooltip,
 } from "recharts";
+import useAssets from "../../hooks/useAssets";
 import useBuy from "../../hooks/useBuy";
 import useLiveChart, { CHART_RANGES } from "../../hooks/useLiveChart";
 import usePrices from "../../hooks/usePrices";
 import useCoinStats from "../../hooks/useCoinStats";
 import useSell from "../../hooks/useSell";
 import FlashPrice from "../../components/FlashPrice";
+import { formatBalance, formatBalanceUsd } from "../../utils/formatBalance";
 import {
+  getBaseAsset,
   getCryptoIconPath,
   handleCryptoIconError,
 } from "../../utils/getCryptoIconPath";
+import { useFavorites } from "../../context/FavoritesContext";
 import "./CryptoDetails.css";
 
 // ─── Axis / tooltip formatting ────────────────────────────────────────────────
@@ -435,9 +440,139 @@ StatsDashboard.propTypes = {
   }).isRequired,
 };
 
-function OrderPanel({ bid, ask, previousBid, previousAsk, onBuy, onSell }) {
+const TRADE_NOTICE_DURATION_MS = 7000;
+
+function buildTradeNotice(mode, result, baseAsset) {
+  const isBuy = mode === "buy";
+  const amount = formatBalance(result?.cryptoAmount);
+  const price = formatBalanceUsd(result?.unitPrice);
+  const total = formatBalanceUsd(
+    result?.fiatChange != null ? Math.abs(Number(result.fiatChange)) : null
+  );
+
+  return {
+    mode,
+    title: isBuy ? "Buy confirmed" : "Sell confirmed",
+    description: isBuy
+      ? `Purchased ${amount} ${baseAsset} at ${price} for a total of ${total}.`
+      : `Sold ${amount} ${baseAsset} at ${price} and received ${total}.`,
+  };
+}
+
+function OrderPanel({ bid, ask, previousBid, previousAsk, ownedAmount, baseAsset, onConfirm }) {
+  const [tradeMode, setTradeMode] = useState("buy");
+  const [cryptoInput, setCryptoInput] = useState("");
+  const [usdInput, setUsdInput] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [tradeNotice, setTradeNotice] = useState(null);
+  const lastEditedRef = useRef(null);
+  const cryptoInputRef = useRef(cryptoInput);
+  const usdInputRef = useRef(usdInput);
+  const noticeTimerRef = useRef(null);
+
+  cryptoInputRef.current = cryptoInput;
+  usdInputRef.current = usdInput;
+
+  const ownedValue = bid != null && ownedAmount > 0 ? ownedAmount * bid : null;
+  const activePrice = tradeMode === "buy" ? ask : bid;
+  const parsedAmount = Number.parseFloat(cryptoInput);
+  const isValidAmount = !Number.isNaN(parsedAmount) && parsedAmount > 0;
+  const exceedsOwned = tradeMode === "sell" && isValidAmount && parsedAmount > ownedAmount;
+
+  const syncFromCrypto = useCallback((cryptoValue, price) => {
+    const num = Number.parseFloat(cryptoValue);
+    if (Number.isNaN(num) || num <= 0 || price == null) {
+      setUsdInput("");
+      return;
+    }
+    setUsdInput(formatBalance(num * price));
+  }, []);
+
+  const syncFromUsd = useCallback((usdValue, price) => {
+    const num = Number.parseFloat(usdValue);
+    if (Number.isNaN(num) || num <= 0 || price == null) {
+      setCryptoInput("");
+      return;
+    }
+    setCryptoInput(formatBalance(num / price));
+  }, []);
+
+  useEffect(() => {
+    if (activePrice == null || lastEditedRef.current == null) return;
+    if (lastEditedRef.current === "crypto") {
+      syncFromCrypto(cryptoInputRef.current, activePrice);
+    } else if (lastEditedRef.current === "usd") {
+      syncFromUsd(usdInputRef.current, activePrice);
+    }
+  }, [activePrice, syncFromCrypto, syncFromUsd]);
+
+  useEffect(() => () => clearTimeout(noticeTimerRef.current), []);
+
+  const showTradeNotice = useCallback((notice) => {
+    clearTimeout(noticeTimerRef.current);
+    setTradeNotice(notice);
+    noticeTimerRef.current = setTimeout(() => setTradeNotice(null), TRADE_NOTICE_DURATION_MS);
+  }, []);
+
+  const handleCryptoChange = (e) => {
+    const value = e.target.value;
+    lastEditedRef.current = "crypto";
+    setCryptoInput(value);
+    if (value === "") {
+      setUsdInput("");
+      return;
+    }
+    syncFromCrypto(value, activePrice);
+  };
+
+  const handleUsdChange = (e) => {
+    const value = e.target.value;
+    lastEditedRef.current = "usd";
+    setUsdInput(value);
+    if (value === "") {
+      setCryptoInput("");
+      return;
+    }
+    syncFromUsd(value, activePrice);
+  };
+
+  const canConfirm =
+    isValidAmount &&
+    !exceedsOwned &&
+    activePrice != null &&
+    !isSubmitting;
+
+  const handleConfirm = async () => {
+    if (!canConfirm) return;
+    setIsSubmitting(true);
+    try {
+      const result = await onConfirm(tradeMode, parsedAmount);
+      showTradeNotice(buildTradeNotice(tradeMode, result, baseAsset));
+      setCryptoInput("");
+      setUsdInput("");
+      lastEditedRef.current = null;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Trade failed";
+      alert(message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <aside className="order-section" aria-label="Order panel">
+      <div className="owned-holdings" aria-label="Your holdings for this asset">
+        <span className="owned-holdings-label">You own</span>
+        <span className="owned-holdings-amount">
+          {formatBalance(ownedAmount)} {baseAsset}
+        </span>
+        {ownedValue != null && (
+          <span className="owned-holdings-value">
+            ≈ {formatBalanceUsd(ownedValue)}
+          </span>
+        )}
+      </div>
+
       <div className="trading-panel">
         <div className="quote-column ask-column">
           <div className="ask-box">
@@ -448,7 +583,6 @@ function OrderPanel({ bid, ask, previousBid, previousAsk, onBuy, onSell }) {
               </FlashPrice>
             </p>
           </div>
-          <button type="button" className="btn-buy" onClick={onBuy}>Buy</button>
         </div>
         <div className="quote-column bid-column">
           <div className="bid-box">
@@ -459,8 +593,99 @@ function OrderPanel({ bid, ask, previousBid, previousAsk, onBuy, onSell }) {
               </FlashPrice>
             </p>
           </div>
-          <button type="button" className="btn-sell" onClick={onSell}>Sell</button>
         </div>
+      </div>
+
+      <div
+        className={`trade-mode-toggle trade-mode-toggle--${tradeMode}`}
+        role="radiogroup"
+        aria-label="Trade operation"
+      >
+        <span className="trade-mode-indicator" aria-hidden="true" />
+        <label className={`trade-mode-option${tradeMode === "buy" ? " active" : ""}`}>
+          <input
+            type="radio"
+            name="trade-mode"
+            value="buy"
+            checked={tradeMode === "buy"}
+            onChange={() => setTradeMode("buy")}
+          />
+          <span className="trade-mode-label">Buy</span>
+        </label>
+        <label className={`trade-mode-option${tradeMode === "sell" ? " active" : ""}`}>
+          <input
+            type="radio"
+            name="trade-mode"
+            value="sell"
+            checked={tradeMode === "sell"}
+            onChange={() => setTradeMode("sell")}
+          />
+          <span className="trade-mode-label">Sell</span>
+        </label>
+      </div>
+
+      <div className={`trade-form trade-form--${tradeMode}`}>
+        <label className="trade-field" htmlFor="trade-amount">
+          <span className="trade-field-label">Amount ({baseAsset})</span>
+          <input
+            id="trade-amount"
+            className="trade-input"
+            type="text"
+            inputMode="decimal"
+            placeholder="0.00000"
+            value={cryptoInput}
+            onChange={handleCryptoChange}
+          />
+        </label>
+
+        <label className="trade-field" htmlFor="trade-usd">
+          <span className="trade-field-label">
+            {tradeMode === "buy" ? "Cost (USD)" : "Proceeds (USD)"}
+          </span>
+          <input
+            id="trade-usd"
+            className="trade-input"
+            type="text"
+            inputMode="decimal"
+            placeholder="0.00000"
+            value={usdInput}
+            onChange={handleUsdChange}
+          />
+        </label>
+
+        <p className="trade-rate-hint">
+          @ {formatQuote(activePrice)}
+        </p>
+
+        {exceedsOwned && (
+          <p className="trade-error">
+            You only own {formatBalance(ownedAmount)} {baseAsset}
+          </p>
+        )}
+
+        <button
+          type="button"
+          className={`btn-confirm btn-confirm--${tradeMode}`}
+          onClick={handleConfirm}
+          disabled={!canConfirm}
+        >
+          {isSubmitting ? "Processing…" : `Confirm ${tradeMode === "buy" ? "Buy" : "Sell"}`}
+        </button>
+
+        {tradeNotice && (
+          <div
+            className={`trade-notice trade-notice--${tradeNotice.mode}`}
+            role="status"
+            aria-live="polite"
+          >
+            <p className="trade-notice-title">{tradeNotice.title}</p>
+            <p className="trade-notice-desc">{tradeNotice.description}</p>
+            <div
+              className="trade-notice-progress"
+              style={{ animationDuration: `${TRADE_NOTICE_DURATION_MS}ms` }}
+            />
+          </div>
+        )}
       </div>
     </aside>
   );
@@ -471,8 +696,9 @@ OrderPanel.propTypes = {
   ask: PropTypes.number,
   previousBid: PropTypes.number,
   previousAsk: PropTypes.number,
-  onBuy: PropTypes.func.isRequired,
-  onSell: PropTypes.func.isRequired,
+  ownedAmount: PropTypes.number.isRequired,
+  baseAsset: PropTypes.string.isRequired,
+  onConfirm: PropTypes.func.isRequired,
 };
 
 function renderChartStatus(displayData, isLoading, chartType) {
@@ -492,15 +718,29 @@ function renderChartStatus(displayData, isLoading, chartType) {
 const CryptoDetails = () => {
   const { cryptoCode = "" } = useParams();
   const navigate = useNavigate();
+  const { assets } = useContext(AppContext);
+  const { isFavorite, toggleFavorite, registerOpened, unregisterOpened } = useFavorites();
 
   const buy  = useBuy();
   const sell = useSell();
   const prices = usePrices();
+  useAssets();
 
   const [chartMode, setChartMode] = useState("line"); // 'line' | 'candle'
   const [lineMode,  setLineMode]  = useState("mid");  // 'mid'  | 'spread'
 
   const symbol = String(cryptoCode).replace("-", "/").toUpperCase();
+  const baseAsset = getBaseAsset(symbol).toUpperCase();
+  const favorited = isFavorite(cryptoCode);
+
+  useEffect(() => {
+    registerOpened(cryptoCode);
+    return () => unregisterOpened(cryptoCode);
+  }, [cryptoCode, registerOpened, unregisterOpened]);
+  const ownedAmount = useMemo(() => {
+    const asset = assets.find((item) => item.cryptoCode === symbol);
+    return asset ? Number(asset.cryptoAmount) : 0;
+  }, [assets, symbol]);
   const { chartData, isLoading, chartType, range, setRange } = useLiveChart(cryptoCode, "1Min", chartMode);
   const { stats, isLoadingStats } = useCoinStats(symbol);
 
@@ -554,20 +794,13 @@ const CryptoDetails = () => {
 
   // ── Trade handlers ──────────────────────────────────────────────────────────
 
-  const handleBuy = async () => {
-    if (ask == null) { alert("Ask price unavailable."); return; }
-    const amount = Number.parseFloat(prompt(`Buy at ${formatQuote(ask)} — amount?`));
-    if (!amount || Number.isNaN(amount)) return;
-    try { await buy(symbol, amount); alert(`Buy successful at ask ${formatQuote(ask)}!`); }
-    catch { alert("Buy failed."); }
-  };
-
-  const handleSell = async () => {
-    if (bid == null) { alert("Bid price unavailable."); return; }
-    const amount = Number.parseFloat(prompt(`Sell at ${formatQuote(bid)} — amount?`));
-    if (!amount || Number.isNaN(amount)) return;
-    try { await sell(symbol, amount); alert(`Sell successful at bid ${formatQuote(bid)}!`); }
-    catch { alert("Sell failed."); }
+  const handleConfirm = async (mode, amount) => {
+    if (mode === "buy") {
+      if (ask == null) throw new Error("Ask price unavailable");
+      return buy(symbol, amount);
+    }
+    if (bid == null) throw new Error("Bid price unavailable");
+    return sell(symbol, amount);
   };
 
   // ── Chart building blocks ───────────────────────────────────────────────────
@@ -621,6 +854,16 @@ const CryptoDetails = () => {
             onError={handleCryptoIconError}
           />
           <h1 className="crypto-symbol">{symbol}</h1>
+          <button
+            type="button"
+            className={`crypto-favorite-btn${favorited ? " active" : ""}`}
+            onClick={() => toggleFavorite(cryptoCode)}
+            aria-label={favorited ? "Remove from favorites" : "Add to favorites"}
+            aria-pressed={favorited}
+            title={favorited ? "Remove from favorites" : "Add to favorites"}
+          >
+            {favorited ? "★" : "☆"}
+          </button>
         </div>
       </header>
 
@@ -737,8 +980,9 @@ const CryptoDetails = () => {
           ask={ask}
           previousBid={previousBid}
           previousAsk={previousAsk}
-          onBuy={handleBuy}
-          onSell={handleSell}
+          ownedAmount={ownedAmount}
+          baseAsset={baseAsset}
+          onConfirm={handleConfirm}
         />
       </div>
     </div>

@@ -1,86 +1,161 @@
-import { useContext, useState } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { useContext, useMemo, useState } from "react";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { AppContext } from "../../context/AppContext";
+import { formatBalanceUsd } from "../../utils/formatBalance";
+import { normalizeCryptoCode, useFavorites } from "../../context/FavoritesContext";
 import useBalance from "../../hooks/useBalance";
+import { getCryptoIconPath, handleCryptoIconError } from "../../utils/getCryptoIconPath";
 import "./Sidebar.css";
 
-const Sidebar = () => {
+const MAIN_NAV = { to: "/market", label: "Market", icon: "📈" };
+
+const OTHER_NAV = [
+  { to: "/portfolio", label: "Portfolio", icon: "💼" },
+  { to: "/transactions", label: "Transactions", icon: "🧾" },
+];
+
+function SidebarCryptoLink({ code, isFavorite, isActive, isExpanded, onNavigate }) {
+  const label = code.replace("-", "/");
+
+  return (
+    <NavLink
+      to={`/market/${code}`}
+      className={`sidebar-crypto-link${isActive ? " active" : ""}${isFavorite ? " favorite" : ""}`}
+      title={label}
+      onClick={onNavigate}
+    >
+      <span className="sidebar-crypto-icon-wrap">
+        <img
+          className="sidebar-crypto-icon"
+          src={getCryptoIconPath(code)}
+          alt=""
+          width={20}
+          height={20}
+          onError={handleCryptoIconError}
+        />
+        {isFavorite && (
+          <span className="sidebar-crypto-star" aria-hidden="true">
+            ★
+          </span>
+        )}
+      </span>
+      {isExpanded && <span className="sidebar-label">{label}</span>}
+    </NavLink>
+  );
+}
+
+const Sidebar = ({ mobileOpen = false, onMobileClose }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, logout, balance } = useContext(AppContext);
+  const { sidebarCryptos } = useFavorites();
   const [isExpanded, setIsExpanded] = useState(true);
-  const [isSyncing, setIsSyncing] = useState(false);
 
   useBalance();
 
-  const handleSyncMarketData = async () => {
-    setIsSyncing(true);
-    try {
-      const response = await fetch(
-        `${process.env.REACT_APP_API_URL}/api/history/sync`,
-        { method: "POST" }
-      );
-      if (!response.ok) {
-        throw new Error(`Sync failed (${response.status})`);
-      }
-      alert("Market data sync started. This may take several minutes.");
-    } catch (err) {
-      console.error("Market data sync error:", err);
-      alert("Failed to start market data sync.");
-    } finally {
-      setIsSyncing(false);
-    }
+  const activeCryptoCode = useMemo(() => {
+    const match = location.pathname.match(/^\/market\/([^/]+)/i);
+    return match ? normalizeCryptoCode(match[1]) : null;
+  }, [location.pathname]);
+
+  const showLabels = isExpanded || mobileOpen;
+
+  const handleNavigate = () => {
+    onMobileClose?.();
   };
 
   const handleLogout = () => {
+    onMobileClose?.();
     logout();
     navigate("/");
   };
 
-  const navItems = [
-    { to: "/market", label: "Market", icon: "📈" },
-    { to: "/portfolio", label: "Portfolio", icon: "💼" },
-    { to: "/transactions", label: "Transactions", icon: "🧾" },
-  ];
-
   return (
-    <aside className={`sidebar${isExpanded ? " expanded" : " collapsed"}`}>
+    <aside
+      className={`sidebar${isExpanded ? " expanded" : " collapsed"}${mobileOpen ? " mobile-open" : ""}`}
+    >
       <div className="sidebar-top">
         <div className="sidebar-header">
-          <div className="sidebar-brand">{isExpanded ? "CryptoTrade" : ""}</div>
+          <div className="sidebar-brand">{showLabels ? "CryptoTrade" : ""}</div>
           <button
             type="button"
             className="sidebar-toggle"
-            onClick={() => setIsExpanded((v) => !v)}
-            aria-label={isExpanded ? "Collapse sidebar" : "Expand sidebar"}
-            title={isExpanded ? "Collapse" : "Expand"}
+            onClick={() => (mobileOpen ? onMobileClose?.() : setIsExpanded((v) => !v))}
+            aria-label={mobileOpen ? "Close menu" : isExpanded ? "Collapse sidebar" : "Expand sidebar"}
+            title={mobileOpen ? "Close" : isExpanded ? "Collapse" : "Expand"}
           >
-            {isExpanded ? "«" : "»"}
+            {mobileOpen ? "✕" : isExpanded ? "«" : "»"}
           </button>
         </div>
 
         <nav className="sidebar-nav">
-          {navItems.map((item) => (
+          <NavLink
+            to={MAIN_NAV.to}
+            end
+            className={({ isActive }) =>
+              `sidebar-link${isActive && !activeCryptoCode ? " active" : ""}`
+            }
+            title={showLabels ? undefined : MAIN_NAV.label}
+            onClick={handleNavigate}
+          >
+            <span className="sidebar-icon" aria-hidden="true">
+              {MAIN_NAV.icon}
+            </span>
+            {showLabels && <span className="sidebar-label">{MAIN_NAV.label}</span>}
+          </NavLink>
+
+          {sidebarCryptos.length > 0 && (
+            <div className="sidebar-crypto-list">
+              {sidebarCryptos.map(({ code, isFavorite }) => (
+                <SidebarCryptoLink
+                  key={code}
+                  code={code}
+                  isFavorite={isFavorite}
+                  isActive={activeCryptoCode === code}
+                  isExpanded={showLabels}
+                  onNavigate={handleNavigate}
+                />
+              ))}
+            </div>
+          )}
+
+          {OTHER_NAV.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
-              end={item.to === "/market"}
               className={({ isActive }) =>
                 `sidebar-link${isActive ? " active" : ""}`
               }
-              title={isExpanded ? undefined : item.label}
+              title={showLabels ? undefined : item.label}
+              onClick={handleNavigate}
             >
               <span className="sidebar-icon" aria-hidden="true">
                 {item.icon}
               </span>
-              {isExpanded && <span className="sidebar-label">{item.label}</span>}
+              {showLabels && <span className="sidebar-label">{item.label}</span>}
             </NavLink>
           ))}
+
+          {user?.isAdmin && (
+            <NavLink
+              to="/admin"
+              className={({ isActive }) =>
+                `sidebar-link${isActive ? " active" : ""}`
+              }
+              title={showLabels ? undefined : "Admin"}
+              onClick={handleNavigate}
+            >
+              <span className="sidebar-icon" aria-hidden="true">
+                ⚙️
+              </span>
+              {showLabels && <span className="sidebar-label">Admin</span>}
+            </NavLink>
+          )}
         </nav>
       </div>
 
       <div className="sidebar-bottom">
         <div className="sidebar-profile">
-
           <div className="sidebar-profile-row">
             <span className="sidebar-profile-username">Hello, {user?.username ?? "—"}</span>
           </div>
@@ -88,18 +163,9 @@ const Sidebar = () => {
           <div className="sidebar-profile-row">
             <span className="sidebar-profile-label">Balance:</span>
             <span className="sidebar-profile-balance-value">
-              {balance ? `${Number(balance.balance).toFixed(2)}$` : "Loading..."}
+              {balance ? formatBalanceUsd(balance.balance) : "Loading..."}
             </span>
           </div>
-
-          <button
-            className="sidebar-sync"
-            type="button"
-            onClick={handleSyncMarketData}
-            disabled={isSyncing}
-          >
-            {isSyncing ? "Syncing…" : "Sync market data"}
-          </button>
 
           <button className="sidebar-logout" type="button" onClick={handleLogout}>
             Logout
@@ -111,4 +177,3 @@ const Sidebar = () => {
 };
 
 export default Sidebar;
-

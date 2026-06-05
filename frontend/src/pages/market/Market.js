@@ -2,6 +2,7 @@ import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import usePrices from "../../hooks/usePrices";
 import useGlobalMarketStats from "../../hooks/useGlobalMarketStats";
+import { normalizeCryptoCode, useFavorites } from "../../context/FavoritesContext";
 import FlashPrice from "../../components/FlashPrice";
 import {
   getCryptoIconPath,
@@ -78,6 +79,7 @@ const Market = () => {
   const prices = usePrices();
   const deferredPrices = useDeferredValue(prices);
   const { globalStats } = useGlobalMarketStats();
+  const { isFavorite, toggleFavorite } = useFavorites();
 
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("all");
@@ -91,7 +93,7 @@ const Market = () => {
   useEffect(() => {
     if (!tickSignature) return;
     setLastUpdate(new Date());
-  }, [tickSignature, prices.length]);
+  }, [tickSignature]);
 
   const rows = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -198,12 +200,13 @@ const Market = () => {
               <th className="col-mcap">Market Cap</th>
               <th className="col-change">24h Change</th>
               <th className="col-updated">Updated</th>
+              <th className="col-favorite" aria-label="Favorites" />
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={6} className="market-empty">
+                <td colSpan={7} className="market-empty">
                   No markets match your search.
                 </td>
               </tr>
@@ -211,6 +214,8 @@ const Market = () => {
               rows.map((row) => {
                 const changeClass = getChangeClass(row.change24h);
                 const target = rowTarget(row.symbol);
+                const cryptoCode = normalizeCryptoCode(row.symbol);
+                const favorited = isFavorite(cryptoCode);
 
                 return (
                   <tr
@@ -281,6 +286,21 @@ const Market = () => {
                       {formatChange(row.change24h)}
                     </td>
                     <td className="col-updated mono">{formatRowUpdated(row.timestamp)}</td>
+                    <td className="col-favorite">
+                      <button
+                        type="button"
+                        className={`market-favorite-btn${favorited ? " active" : ""}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleFavorite(cryptoCode);
+                        }}
+                        aria-label={favorited ? "Remove from favorites" : "Add to favorites"}
+                        aria-pressed={favorited}
+                        title={favorited ? "Remove from favorites" : "Add to favorites"}
+                      >
+                        {favorited ? "★" : "☆"}
+                      </button>
+                    </td>
                   </tr>
                 );
               })

@@ -27,7 +27,13 @@ const LandingPage = () => {
       localStorage.setItem('userId', data.id);
       localStorage.setItem('jwt', data.jwt);
       localStorage.setItem('username', data.username);
-      setUser({ id: data.id, username: data.username, balance: data.balance });
+      localStorage.setItem('isAdmin', String(Boolean(data.isAdmin)));
+      setUser({
+        id: data.id,
+        username: data.username,
+        balance: data.balance,
+        isAdmin: Boolean(data.isAdmin),
+      });
 
       navigate('/market');
 

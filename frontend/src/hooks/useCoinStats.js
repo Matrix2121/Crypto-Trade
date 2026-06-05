@@ -10,7 +10,7 @@ function mapMarketData(data) {
     marketCap: data.marketCap ?? null,
     rank: data.marketRank ?? null,
     supply: data.circulatingSupply ?? null,
-    volume: null,
+    volume: data.volume24h ?? null,
     ath: data.allTimeHigh != null ? Number(data.allTimeHigh) : null,
     athDate: data.athTimestamp ?? null,
   };
