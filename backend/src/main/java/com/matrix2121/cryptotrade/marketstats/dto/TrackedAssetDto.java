@@ -10,7 +10,9 @@ public record TrackedAssetDto(
         Long marketCap,
         Long circulatingSupply,
         BigDecimal allTimeHigh,
-        Long athTimestamp) {
+        Long athTimestamp,
+        Double change24h,
+        Long volume24h) {
 
     public static TrackedAssetDto from(TrackedAsset asset) {
         return new TrackedAssetDto(
@@ -19,6 +21,12 @@ public record TrackedAssetDto(
                 asset.getMarketCap(),
                 asset.getCirculatingSupply(),
                 asset.getAllTimeHigh(),
-                asset.getAthTimestamp());
+                asset.getAthTimestamp(),
+                asset.getChange24h(),
+                asset.getVolume24h());
+    }
+
+    public static TrackedAssetDto empty(String symbol) {
+        return new TrackedAssetDto(symbol, null, null, null, null, null, null, null);
     }
 }

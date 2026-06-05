@@ -22,7 +22,7 @@ public class UserDaoImpl implements UserDao {
     public Optional<UserModel> getUserByUsername(UserLoginDto userLoginDto) {
         checkIfUserExistsByUsername(userLoginDto.username());
         return Optional.ofNullable(jdbcTemplate.queryForObject(
-                "select id, username, email, balance, picture_url from users where username = ?",
+                "select id, username, email, balance, picture_url, is_admin from users where username = ?",
                 UserMapper.mapToUserModel(),
                 userLoginDto.username()));
     }
@@ -38,7 +38,7 @@ public class UserDaoImpl implements UserDao {
         }
 
         return Optional.ofNullable(jdbcTemplate.queryForObject(
-                "select id, username, balance, email, picture_url from users where email = ?",
+                "select id, username, balance, email, picture_url, is_admin from users where email = ?",
                 UserMapper.mapToUserModel(),
                 email));
     }
@@ -46,7 +46,7 @@ public class UserDaoImpl implements UserDao {
     @Override
     public UserModel createUser(String email, String username, BigDecimal balance, String pictureUrl) {
         return jdbcTemplate.queryForObject(
-                "insert into users (email, username, balance, picture_url) values (?, ?, ?, ?) returning id, username, balance, email, picture_url",
+                "insert into users (email, username, balance, picture_url) values (?, ?, ?, ?) returning id, username, balance, email, picture_url, is_admin",
                 UserMapper.mapToUserModel(),
                 email,
                 username,
@@ -61,6 +61,11 @@ public class UserDaoImpl implements UserDao {
             "select * from reset_user_by_id(?)",
             Boolean.class,
             userId);
+    }
+
+    @Override
+    public void ensureUserExists(Long userId) {
+        checkIfUserExistsById(userId);
     }
 
     private boolean checkIfUserExistsById(Long userId){

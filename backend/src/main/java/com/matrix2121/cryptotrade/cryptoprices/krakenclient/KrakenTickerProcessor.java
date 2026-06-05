@@ -2,6 +2,7 @@ package com.matrix2121.cryptotrade.cryptoprices.krakenclient;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
 
 import org.springframework.stereotype.Service;
@@ -115,13 +116,17 @@ public class KrakenTickerProcessor {
     }
 
     private PriceTick enrichWithPrevious(PriceTick priceTick) {
+        Instant updatedAt = CryptoPricesContext.getLastUpdated(priceTick.symbol());
+        if (updatedAt == null) {
+            updatedAt = priceTick.timestamp();
+        }
         return new PriceTick(
                 priceTick.symbol(),
                 priceTick.ask(),
                 priceTick.bid(),
                 CryptoPricesContext.getPreviousAsk(priceTick.symbol()),
                 CryptoPricesContext.getPreviousBid(priceTick.symbol()),
-                priceTick.timestamp());
+                updatedAt);
     }
 
     private void broadcastPriceTick(PriceTick priceTick) {

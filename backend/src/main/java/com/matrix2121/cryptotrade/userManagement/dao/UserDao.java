@@ -11,4 +11,5 @@ public interface UserDao {
     public Optional<UserModel> getUserByEmail(String email);
     public UserModel createUser(String email, String username, BigDecimal balance, String pictureUrl);
     public Boolean resetUserByUserId(Long userId);
+    public void ensureUserExists(Long userId);
 }
