@@ -73,7 +73,11 @@ public class KrakenTickerProcessor {
     }
 
     private void updateContext(PriceTick priceTick) {
-        CryptoPricesContext.setPrices(priceTick.symbol(), priceTick.bid(), priceTick.ask());
+        CryptoPricesContext.setPrices(
+                priceTick.symbol(),
+                priceTick.bid(),
+                priceTick.ask(),
+                priceTick.timestamp());
     }
 
     /**
