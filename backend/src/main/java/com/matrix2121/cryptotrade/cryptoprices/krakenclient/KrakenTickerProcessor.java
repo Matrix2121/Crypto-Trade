@@ -15,9 +15,9 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.matrix2121.cryptotrade.context.CryptoPricesContext;
 import com.matrix2121.cryptotrade.cryptoprices.krakenclient.model.PriceTick;
 import com.matrix2121.cryptotrade.cryptoprices.krakenclient.model.TickerFrame;
-import com.matrix2121.cryptotrade.history.LiveTickCacheService;
-import com.matrix2121.cryptotrade.history.TickDto;
-import com.matrix2121.cryptotrade.history.TrackedAssetRepository;
+import com.matrix2121.cryptotrade.marketdata.LiveTickCacheService;
+import com.matrix2121.cryptotrade.marketdata.dto.TickDto;
+import com.matrix2121.cryptotrade.marketstats.persistence.TrackedAssetRepository;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -73,7 +73,11 @@ public class KrakenTickerProcessor {
     }
 
     private void updateContext(PriceTick priceTick) {
-        CryptoPricesContext.setPrices(priceTick.symbol(), priceTick.bid(), priceTick.ask());
+        CryptoPricesContext.setPrices(
+                priceTick.symbol(),
+                priceTick.bid(),
+                priceTick.ask(),
+                priceTick.timestamp());
     }
 
     /**

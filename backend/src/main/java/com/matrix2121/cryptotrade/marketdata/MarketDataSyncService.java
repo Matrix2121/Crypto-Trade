@@ -1,4 +1,4 @@
-package com.matrix2121.cryptotrade.history;
+package com.matrix2121.cryptotrade.marketdata;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -16,18 +16,16 @@ import org.springframework.stereotype.Service;
 import com.matrix2121.cryptotrade.cryptoprices.krakenclient.KrakenOhlcClient;
 import com.matrix2121.cryptotrade.cryptoprices.krakenclient.KrakenTradesClient;
 import com.matrix2121.cryptotrade.exceptions.KrakenApiException;
+import com.matrix2121.cryptotrade.marketdata.dto.OhlcDto;
+import com.matrix2121.cryptotrade.marketdata.dto.TickDto;
+import com.matrix2121.cryptotrade.marketdata.persistence.OhlcData;
+import com.matrix2121.cryptotrade.marketdata.persistence.OhlcDataRepository;
 
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
 public class MarketDataSyncService {
-
-    static final List<String> TRACKED_SYMBOLS = List.of(
-            "BTC/USD", "ETH/USD", "XRP/USD", "USDT/USD", "BNB/USD",
-            "SOL/USD", "USDC/USD", "DOGE/USD", "TRX/USD", "ADA/USD",
-            "WBTC/USD", "XLM/USD", "SUI/USD", "LINK/USD", "HBAR/USD",
-            "BCH/USD", "AVAX/USD", "SHIB/USD", "TON/USD", "LTC/USD");
 
     private record IntervalSpec(int krakenInterval, String intervalString, long lookbackDays) {}
 
@@ -55,8 +53,8 @@ public class MarketDataSyncService {
 
     @Scheduled(cron = "0 0 0 * * ?")
     public void syncAll() {
-        log.info("Market data sync started for {} symbols", TRACKED_SYMBOLS.size());
-        for (String symbol : TRACKED_SYMBOLS) {
+        log.info("Market data sync started for {} symbols", TrackedSymbols.SYMBOLS.size());
+        for (String symbol : TrackedSymbols.SYMBOLS) {
             try {
                 syncSymbol(symbol);
                 log.info("Synced {}", symbol);
@@ -141,14 +139,8 @@ public class MarketDataSyncService {
                 deduped.size(), spec.intervalString(), symbol, entities.size());
     }
 
-    /**
-     * Seeds the in-memory tick cache with the most recent Kraken trades for this symbol.
-     * Replaces whatever was previously in the cache so the window always reflects the
-     * freshest data available at sync time.
-     */
     private void syncTicks(String symbol) {
         List<TickDto> ticks = krakenTradesClient.fetchLastTrades(symbol);
-        // Deduplicate by timestamp before seeding (Kraken can return duplicate timestamps).
         Map<Long, TickDto> uniqueTicks = new HashMap<>();
         for (TickDto tick : ticks) {
             uniqueTicks.put(tick.timestamp(), tick);
@@ -158,10 +150,6 @@ public class MarketDataSyncService {
                 uniqueTicks.size(), symbol, ticks.size());
     }
 
-    /**
-     * Merges incoming candles without wiping historical rows.
-     * Replaces only timestamps present in the incoming payload.
-     */
     private void upsertOhlcCandles(
             String symbol, String intervalString, List<OhlcData> incoming) {
         if (incoming.isEmpty()) {
