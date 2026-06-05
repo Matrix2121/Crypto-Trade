@@ -12,21 +12,23 @@ import java.util.Map;
 
 import org.springframework.stereotype.Service;
 
+import com.matrix2121.cryptotrade.marketdata.TrackedSymbolsService;
+
 @Slf4j
 @Service
 public class KrakenTickerSubscriber {
-    private final String[] symbols = {
-            "BTC/USD", "ETH/USD", "XRP/USD", "USDT/USD", "BNB/USD",
-            "SOL/USD", "USDC/USD", "DOGE/USD", "TRX/USD", "ADA/USD",
-            "WBTC/USD", "XLM/USD", "SUI/USD", "LINK/USD", "HBAR/USD",
-            "BCH/USD", "AVAX/USD", "SHIB/USD", "TON/USD", "LTC/USD"
-    };
+    private final TrackedSymbolsService trackedSymbolsService;
     private final ObjectMapper mapper = new ObjectMapper().registerModule(new JavaTimeModule());
 
+    public KrakenTickerSubscriber(TrackedSymbolsService trackedSymbolsService) {
+        this.trackedSymbolsService = trackedSymbolsService;
+    }
+
     public void subscribe(WebSocket webSocket) {
+        List<String> symbols = trackedSymbolsService.getSymbols();
         var subscription = Map.of(
                 "method", "subscribe",
-                "params", Map.of("channel", "ticker", "symbol", List.of(symbols)));
+                "params", Map.of("channel", "ticker", "symbol", symbols));
         try {
             webSocket.sendText(mapper.writeValueAsString(subscription), true);
         } catch (JsonProcessingException e) {

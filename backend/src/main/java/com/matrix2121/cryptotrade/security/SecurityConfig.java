@@ -29,7 +29,15 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                    .requestMatchers("/api/auth/google", "/api/prices", "/api/history/**", "/api/market-stats/**", "/ws/**").permitAll()                        .anyRequest().authenticated())
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers(
+                                "/api/auth/google",
+                                "/api/prices",
+                                "/api/history/**",
+                                "/api/market-stats/**",
+                                "/ws/**")
+                        .permitAll()
+                        .anyRequest().authenticated())
                         .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                         .build();
     }

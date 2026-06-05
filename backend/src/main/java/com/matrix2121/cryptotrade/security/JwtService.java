@@ -6,6 +6,9 @@ import java.util.Date;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import com.matrix2121.cryptotrade.userManagement.UserModel;
+
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
@@ -25,26 +28,39 @@ public class JwtService {
         Date now = new Date();
         Date expiration = new Date(now.getTime() + 24L * 60L * 60L * 1000L);
 
-        return Jwts.builder()
+        var builder = Jwts.builder()
                 .setSubject(user.email())
                 .claim("id", user.id())
                 .setIssuedAt(now)
-                .setExpiration(expiration)
-                .signWith(
+                .setExpiration(expiration);
+
+        if (user instanceof UserModel userModel) {
+            builder.claim("isAdmin", userModel.isAdmin());
+        }
+
+        return builder.signWith(
                         Keys.hmacShaKeyFor(effectiveSecret.getBytes(StandardCharsets.UTF_8)),
                         SignatureAlgorithm.HS256)
                 .compact();
     }
 
     public String extractUsername(String token) {
+        return parseClaims(token).getSubject();
+    }
+
+    public boolean extractIsAdmin(String token) {
+        Object claim = parseClaims(token).get("isAdmin");
+        return Boolean.TRUE.equals(claim);
+    }
+
+    private Claims parseClaims(String token) {
         String effectiveSecret = (secret == null || secret.isBlank()) ? DEFAULT_SECRET : secret;
-        
+
         return Jwts.parserBuilder()
                 .setSigningKey(Keys.hmacShaKeyFor(effectiveSecret.getBytes(StandardCharsets.UTF_8)))
                 .build()
                 .parseClaimsJws(token)
-                .getBody()
-                .getSubject();
+                .getBody();
     }
 
     public boolean validateToken(String token) {

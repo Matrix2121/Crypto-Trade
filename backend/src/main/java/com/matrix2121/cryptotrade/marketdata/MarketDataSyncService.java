@@ -39,22 +39,26 @@ public class MarketDataSyncService {
     private final LiveTickCacheService liveTickCacheService;
     private final KrakenOhlcClient krakenOhlcClient;
     private final KrakenTradesClient krakenTradesClient;
+    private final TrackedSymbolsService trackedSymbolsService;
 
     public MarketDataSyncService(
             OhlcDataRepository ohlcDataRepository,
             LiveTickCacheService liveTickCacheService,
             KrakenOhlcClient krakenOhlcClient,
-            KrakenTradesClient krakenTradesClient) {
+            KrakenTradesClient krakenTradesClient,
+            TrackedSymbolsService trackedSymbolsService) {
         this.ohlcDataRepository = ohlcDataRepository;
         this.liveTickCacheService = liveTickCacheService;
         this.krakenOhlcClient = krakenOhlcClient;
         this.krakenTradesClient = krakenTradesClient;
+        this.trackedSymbolsService = trackedSymbolsService;
     }
 
     @Scheduled(cron = "0 0 0 * * ?")
     public void syncAll() {
-        log.info("Market data sync started for {} symbols", TrackedSymbols.SYMBOLS.size());
-        for (String symbol : TrackedSymbols.SYMBOLS) {
+        List<String> symbols = trackedSymbolsService.getSymbols();
+        log.info("Market data sync started for {} symbols", symbols.size());
+        for (String symbol : symbols) {
             try {
                 syncSymbol(symbol);
                 log.info("Synced {}", symbol);

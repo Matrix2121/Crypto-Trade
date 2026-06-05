@@ -10,7 +10,9 @@ public class TransactionMapper {
         return new TransactionShortDto(
             transactionModel.id(),
             transactionModel.cryptoCode(),
+            transactionModel.unitPrice(),
             transactionModel.cryptoAmount(),
+            transactionModel.localCurrencyAmount(),
             transactionModel.isPurchase(),
             transactionModel.tradeTimestamp()
         );

@@ -9,5 +9,6 @@ public record UserModel(
 		String username,
 		String email,
 		BigDecimal balance,
-		String pictureUrl) implements User {
+		String pictureUrl,
+		boolean isAdmin) implements User {
 }

@@ -43,6 +43,7 @@ public class AuthController {
 
         BalanceDto balance = balanceService.getBalanceByUserId(user.id());
 
-        return ResponseEntity.ok(new AuthResponse(user.id(), jwt, user.username(), balance.balance()));
+        return ResponseEntity.ok(new AuthResponse(
+                user.id(), jwt, user.username(), balance.balance(), user.isAdmin()));
     }
 }

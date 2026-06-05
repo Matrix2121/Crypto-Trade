@@ -6,7 +6,9 @@ import java.time.Instant;
 public record TransactionShortDto(
     Long id,
     String cryptoCode,
+    BigDecimal unitPrice,
     BigDecimal cryptoAmount,
+    BigDecimal localCurrencyAmount,
     Boolean isPurchase,
     Instant tradeTimestamp) {
 }

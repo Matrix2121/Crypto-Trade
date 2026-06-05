@@ -5,7 +5,11 @@ export const AppContext = createContext();
 const getInitialUser = () => {
   const jwt = localStorage.getItem("jwt");
   if (!jwt) return null;
-  return { id: localStorage.getItem("userId"), username: localStorage.getItem("username") };
+  return {
+    id: localStorage.getItem("userId"),
+    username: localStorage.getItem("username"),
+    isAdmin: localStorage.getItem("isAdmin") === "true",
+  };
 };
 
 const AppProvider = ({ children }) => {
@@ -24,6 +28,7 @@ const AppProvider = ({ children }) => {
     localStorage.removeItem("jwt");
     localStorage.removeItem("userId");
     localStorage.removeItem("username");
+    localStorage.removeItem("isAdmin");
     setUser(null);
   };
 

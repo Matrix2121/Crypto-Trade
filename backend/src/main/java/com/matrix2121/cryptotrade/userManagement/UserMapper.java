@@ -18,6 +18,7 @@ public class UserMapper {
                 rs.getString("username"),
                 rs.getString("email"),
                 rs.getBigDecimal("balance"),
-                rs.getString("picture_url"));
+                rs.getString("picture_url"),
+                rs.getBoolean("is_admin"));
     }
 }

@@ -39,12 +39,15 @@ public class TickAggregationService {
 
     private final OhlcDataRepository ohlcDataRepository;
     private final LiveTickCacheService liveTickCacheService;
+    private final TrackedSymbolsService trackedSymbolsService;
 
     public TickAggregationService(
             OhlcDataRepository ohlcDataRepository,
-            LiveTickCacheService liveTickCacheService) {
+            LiveTickCacheService liveTickCacheService,
+            TrackedSymbolsService trackedSymbolsService) {
         this.ohlcDataRepository = ohlcDataRepository;
         this.liveTickCacheService = liveTickCacheService;
+        this.trackedSymbolsService = trackedSymbolsService;
     }
 
     @Scheduled(cron = "0 0/5 * * * ?")
@@ -53,7 +56,7 @@ public class TickAggregationService {
         long now   = System.currentTimeMillis();
         long start = now - FIVE_MIN_MS;
 
-        for (String symbol : TrackedSymbols.SYMBOLS) {
+        for (String symbol : trackedSymbolsService.getSymbols()) {
             try {
                 List<TickDto> windowTicks =
                         liveTickCacheService.getTicksInWindow(symbol, start, now);
@@ -98,7 +101,7 @@ public class TickAggregationService {
             long since,
             long now) {
 
-        for (String symbol : TrackedSymbols.SYMBOLS) {
+        for (String symbol : trackedSymbolsService.getSymbols()) {
             try {
                 List<OhlcData> source = ohlcDataRepository
                         .findBySymbolAndIntervalStringAndTimestampBetweenOrderByTimestampAsc(

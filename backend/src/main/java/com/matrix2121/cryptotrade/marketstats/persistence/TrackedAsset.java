@@ -35,6 +35,12 @@ public class TrackedAsset {
     @Column
     private Long athTimestamp;
 
+    @Column(name = "change_24h")
+    private Double change24h;
+
+    @Column(name = "volume_24h")
+    private Long volume24h;
+
     protected TrackedAsset() {
     }
 
@@ -44,13 +50,17 @@ public class TrackedAsset {
             Long marketCap,
             Long circulatingSupply,
             BigDecimal allTimeHigh,
-            Long athTimestamp) {
+            Long athTimestamp,
+            Double change24h,
+            Long volume24h) {
         this.symbol = symbol;
         this.marketRank = marketRank;
         this.marketCap = marketCap;
         this.circulatingSupply = circulatingSupply;
         this.allTimeHigh = allTimeHigh;
         this.athTimestamp = athTimestamp;
+        this.change24h = change24h;
+        this.volume24h = volume24h;
     }
 
     public String getSymbol() {
@@ -95,5 +105,21 @@ public class TrackedAsset {
 
     public void setAthTimestamp(Long athTimestamp) {
         this.athTimestamp = athTimestamp;
+    }
+
+    public Double getChange24h() {
+        return change24h;
+    }
+
+    public void setChange24h(Double change24h) {
+        this.change24h = change24h;
+    }
+
+    public Long getVolume24h() {
+        return volume24h;
+    }
+
+    public void setVolume24h(Long volume24h) {
+        this.volume24h = volume24h;
     }
 }

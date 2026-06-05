@@ -16,7 +16,10 @@ const MAX_BACKOFF_MS = 30000;
 function normalizeTick(tick, overrides = {}) {
   return {
     ...tick,
-    timestamp: tick.timestamp ? new Date(tick.timestamp) : new Date(),
+    timestamp:
+      tick.timestamp != null && tick.timestamp !== ""
+        ? new Date(tick.timestamp)
+        : null,
     previousBid: tick.previousBid ?? null,
     previousAsk: tick.previousAsk ?? null,
     ...overrides,
@@ -29,6 +32,11 @@ function samePrice(a, b) {
   const nb = Number(b);
   if (!Number.isNaN(na) && !Number.isNaN(nb)) return na === nb;
   return String(a) === String(b);
+}
+
+function pricesChanged(incoming, existing) {
+  if (!existing) return true;
+  return !samePrice(incoming.bid, existing.bid) || !samePrice(incoming.ask, existing.ask);
 }
 
 function nextPreviousPrice(incoming, existing, side) {
@@ -59,11 +67,19 @@ export function PricesProvider({ children }) {
 
     setPrices((prev) => {
       const oldTick = prev[tick.symbol];
+      const changed = pricesChanged(tick, oldTick);
+      const nextTimestamp = changed
+        ? tick.timestamp
+          ? new Date(tick.timestamp)
+          : new Date()
+        : oldTick?.timestamp ?? (tick.timestamp ? new Date(tick.timestamp) : new Date());
+
       return {
         ...prev,
         [tick.symbol]: normalizeTick(tick, {
           previousBid: nextPreviousPrice(tick, oldTick, "Bid"),
           previousAsk: nextPreviousPrice(tick, oldTick, "Ask"),
+          timestamp: nextTimestamp,
         }),
       };
     });
@@ -131,7 +147,10 @@ export function PricesProvider({ children }) {
     };
   }, [connectWebSocket]);
 
-  const pricesList = useMemo(() => Object.values(prices), [prices]);
+  const pricesList = useMemo(
+    () => Object.values(prices).sort((a, b) => a.symbol.localeCompare(b.symbol)),
+    [prices]
+  );
 
   const value = useMemo(
     () => ({ prices, pricesList }),

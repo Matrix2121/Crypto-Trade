@@ -1,0 +1,2 @@
+-- Admin flag for users (run once against your database).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FALSE;
