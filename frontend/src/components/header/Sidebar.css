@@ -1,5 +1,8 @@
 .sidebar {
-    height: 100%;
+    box-sizing: border-box;
+    flex-shrink: 0;
+    align-self: stretch;
+    min-height: 0;
     background: var(--color-bg-page);
     border-right: 1px solid var(--color-border-default);
     color: var(--color-text-primary);
@@ -206,6 +209,34 @@
     display: flex;
     justify-content: space-between;
     gap: 10px;
+  }
+
+  .sidebar-profile-user {
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.65rem;
+    min-width: 0;
+  }
+
+  .sidebar-profile-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    border: 1px solid var(--color-border-default);
+    background: var(--color-bg-page);
+  }
+
+  .sidebar-profile-avatar-fallback {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    font-weight: 800;
+    color: var(--color-text-primary);
+    background: var(--color-accent-blue);
+    border-color: color-mix(in srgb, var(--color-accent-blue) 60%, var(--color-border-default));
   }
   
   .sidebar-profile-label {
