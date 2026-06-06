@@ -8,6 +8,7 @@ const getInitialUser = () => {
   return {
     id: localStorage.getItem("userId"),
     username: localStorage.getItem("username"),
+    pictureUrl: localStorage.getItem("pictureUrl") || null,
     isAdmin: localStorage.getItem("isAdmin") === "true",
   };
 };
@@ -28,6 +29,7 @@ const AppProvider = ({ children }) => {
     localStorage.removeItem("jwt");
     localStorage.removeItem("userId");
     localStorage.removeItem("username");
+    localStorage.removeItem("pictureUrl");
     localStorage.removeItem("isAdmin");
     setUser(null);
   };
