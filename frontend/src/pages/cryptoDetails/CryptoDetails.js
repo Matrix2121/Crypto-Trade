@@ -20,7 +20,7 @@ import {
 } from "recharts";
 import useAssets from "../../hooks/useAssets";
 import useBuy from "../../hooks/useBuy";
-import useLiveChart, { CHART_RANGES } from "../../hooks/useLiveChart";
+import useLiveChart from "../../hooks/useLiveChart";
 import usePrices from "../../hooks/usePrices";
 import useCoinStats from "../../hooks/useCoinStats";
 import useSell from "../../hooks/useSell";
@@ -44,6 +44,21 @@ import "./CryptoDetails.css";
 const TIME_AXIS_RANGES = new Set(["1Min", "5Min", "15Min", "1H", "1D"]);
 const LONG_DATE_RANGES = new Set(["1Y", "5Y"]);
 const SECONDS_RANGES = new Set(["1Min", "5Min", "15Min"]);
+
+const LIVE_CHART_RANGES = [
+  { value: "1Min", label: "1 min" },
+  { value: "5Min", label: "5 min" },
+  { value: "15Min", label: "15 min" },
+];
+
+const AGGREGATED_CHART_RANGES = [
+  { value: "1H", label: "1H" },
+  { value: "1D", label: "1D" },
+  { value: "1W", label: "1W" },
+  { value: "1M", label: "1M" },
+  { value: "3M", label: "3M" },
+  { value: "1Y", label: "1Y" },
+];
 
 function toTimestampMs(ts) {
   const n = Number(ts);
@@ -629,6 +644,7 @@ function OrderPanel({
   previousBid,
   previousAsk,
   ownedAmount,
+  usdBalance,
   baseAsset,
   onConfirm,
 }) {
@@ -793,6 +809,24 @@ function OrderPanel({
     syncFromUsd(value, activePrice);
   };
 
+  const handleMaxCrypto = () => {
+    if (ownedAmount <= 0) return;
+    if (hasActiveError) clearTradeErrors();
+    lastEditedRef.current = "crypto";
+    const formatted = formatCryptoAmount(ownedAmount);
+    setCryptoInput(formatted);
+    syncFromCrypto(formatted, activePrice);
+  };
+
+  const handleMaxUsd = () => {
+    if (usdBalance <= 0) return;
+    if (hasActiveError) clearTradeErrors();
+    lastEditedRef.current = "usd";
+    const formatted = formatBalance(usdBalance);
+    setUsdInput(formatted);
+    syncFromUsd(formatted, activePrice);
+  };
+
   const canConfirm =
     isValidAmount && !exceedsOwned && activePrice != null && !isSubmitting;
 
@@ -806,7 +840,7 @@ function OrderPanel({
     }
 
     if (exceedsOwned) {
-      return `You only own ${formatBalance(ownedAmount)} ${baseAsset}`;
+      return `You only own ${formatCryptoAmount(ownedAmount)} ${baseAsset}`;
     }
 
     const hasInput = cryptoInput.trim() !== "" || usdInput.trim() !== "";
@@ -881,7 +915,7 @@ function OrderPanel({
         >
           <span className="owned-holdings-label">You own</span>
           <span className="owned-holdings-amount">
-            {formatBalance(ownedAmount)} {baseAsset}
+            {formatCryptoAmount(ownedAmount)} {baseAsset}
           </span>
           {ownedValue != null && (
             <span className="owned-holdings-value">
@@ -966,39 +1000,63 @@ function OrderPanel({
         >
           <label className="trade-field" htmlFor="trade-amount">
             <span className="trade-field-label">Amount ({baseAsset})</span>
-            <input
-              id="trade-amount"
-              className="trade-input"
-              type="text"
-              inputMode="decimal"
-              placeholder="0.00000"
-              value={cryptoInput}
-              onChange={handleCryptoChange}
-              onKeyDown={handleTradeInputKeyDown}
-            />
+            <div className="trade-input-wrap">
+              <input
+                id="trade-amount"
+                className="trade-input"
+                type="text"
+                inputMode="decimal"
+                placeholder="0.00000"
+                value={cryptoInput}
+                onChange={handleCryptoChange}
+                onKeyDown={handleTradeInputKeyDown}
+              />
+              {tradeMode === "sell" && ownedAmount > 0 && (
+                <button
+                  type="button"
+                  className="trade-max-btn"
+                  onClick={handleMaxCrypto}
+                  aria-label={`Use full balance of ${formatCryptoAmount(ownedAmount)} ${baseAsset}`}
+                >
+                  MAX
+                </button>
+              )}
+            </div>
           </label>
 
           <label className="trade-field" htmlFor="trade-usd">
             <span className="trade-field-label">
               {tradeMode === "buy" ? "Cost (USD)" : "Proceeds (USD)"}
             </span>
-            <input
-              id="trade-usd"
-              className="trade-input"
-              type="text"
-              inputMode="decimal"
-              placeholder="0.00000"
-              value={usdInput}
-              onChange={handleUsdChange}
-              onKeyDown={handleTradeInputKeyDown}
-            />
+            <div className="trade-input-wrap">
+              <input
+                id="trade-usd"
+                className="trade-input"
+                type="text"
+                inputMode="decimal"
+                placeholder="0.00000"
+                value={usdInput}
+                onChange={handleUsdChange}
+                onKeyDown={handleTradeInputKeyDown}
+              />
+              {tradeMode === "buy" && usdBalance > 0 && (
+                <button
+                  type="button"
+                  className="trade-max-btn"
+                  onClick={handleMaxUsd}
+                  aria-label={`Use full USD balance of ${formatBalanceUsd(usdBalance)}`}
+                >
+                  MAX
+                </button>
+              )}
+            </div>
           </label>
 
           <p className="trade-rate-hint">@ {formatQuote(activePrice)}</p>
 
           {exceedsOwned && (
             <p className="trade-error">
-              You only own {formatBalance(ownedAmount)} {baseAsset}
+              You only own {formatCryptoAmount(ownedAmount)} {baseAsset}
             </p>
           )}
 
@@ -1030,6 +1088,7 @@ OrderPanel.propTypes = {
   previousBid: PropTypes.number,
   previousAsk: PropTypes.number,
   ownedAmount: PropTypes.number.isRequired,
+  usdBalance: PropTypes.number.isRequired,
   baseAsset: PropTypes.string.isRequired,
   onConfirm: PropTypes.func.isRequired,
 };
@@ -1051,7 +1110,7 @@ function renderChartStatus(displayData, isLoading, chartType) {
 const CryptoDetails = () => {
   const { cryptoCode = "" } = useParams();
   const navigate = useNavigate();
-  const { assets } = useContext(AppContext);
+  const { assets, balance } = useContext(AppContext);
   const { isFavorite, toggleFavorite, registerOpened, unregisterOpened } =
     useFavorites();
 
@@ -1075,9 +1134,14 @@ const CryptoDetails = () => {
     const asset = assets.find((item) => item.cryptoCode === symbol);
     return asset ? Number(asset.cryptoAmount) : 0;
   }, [assets, symbol]);
+  const usdBalance = useMemo(() => {
+    if (balance?.balance == null) return 0;
+    const parsed = Number(balance.balance);
+    return Number.isNaN(parsed) ? 0 : parsed;
+  }, [balance]);
   const { chartData, isLoading, chartType, range, setRange } = useLiveChart(
     cryptoCode,
-    "1Min",
+    "1D",
     chartMode,
   );
   const { stats, isLoadingStats } = useCoinStats(symbol);
@@ -1217,22 +1281,44 @@ const CryptoDetails = () => {
           {/* ── Timeframe + chart-mode controls ── */}
           <div className="chart-controls-bar">
             <div
-              className="timeframe-selector"
+              className="timeframe-selectors"
               role="tablist"
               aria-label="Chart timeframe"
             >
-              {CHART_RANGES.map((tf) => (
-                <button
-                  key={tf}
-                  type="button"
-                  role="tab"
-                  className={`timeframe-btn${range === tf ? " active" : ""}`}
-                  onClick={() => setRange(tf)}
-                  aria-selected={range === tf}
-                >
-                  {tf}
-                </button>
-              ))}
+              <div className="timeframe-selector-row">
+                <span className="timeframe-selector-label">Live:</span>
+                <div className="timeframe-selector">
+                  {LIVE_CHART_RANGES.map(({ value, label }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      role="tab"
+                      className={`timeframe-btn${range === value ? " active" : ""}`}
+                      onClick={() => setRange(value)}
+                      aria-selected={range === value}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="timeframe-selector-row">
+                <span className="timeframe-selector-label">Aggregated:</span>
+                <div className="timeframe-selector">
+                  {AGGREGATED_CHART_RANGES.map(({ value, label }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      role="tab"
+                      className={`timeframe-btn${range === value ? " active" : ""}`}
+                      onClick={() => setRange(value)}
+                      aria-selected={range === value}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
             <div className="chart-mode-controls">
@@ -1337,6 +1423,7 @@ const CryptoDetails = () => {
           previousBid={previousBid}
           previousAsk={previousAsk}
           ownedAmount={ownedAmount}
+          usdBalance={usdBalance}
           baseAsset={baseAsset}
           onConfirm={handleConfirm}
         />

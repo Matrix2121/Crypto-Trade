@@ -23,7 +23,11 @@ const AppProvider = ({ children }) => {
   const [lastOperation, setLastOperation] = useState(0);
 
   const doReset = () => setReset((prev) => prev + 1);
-  const doResetDone = () => setResetDone((prev) => prev + 1);
+  const doResetDone = () => {
+    setReset(0);
+    setResetDone((prev) => prev + 1);
+  };
+  const clearReset = () => setReset(0);
   const newOperation = () => setLastOperation((prev) => prev + 1);
   const logout = () => {
     localStorage.removeItem("jwt");
@@ -50,6 +54,7 @@ const AppProvider = ({ children }) => {
         doReset,
         resetDone,
         doResetDone,
+        clearReset,
         lastOperation,
         setLastOperation,
         newOperation

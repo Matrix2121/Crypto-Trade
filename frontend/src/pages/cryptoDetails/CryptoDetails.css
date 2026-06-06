@@ -336,6 +336,29 @@
   color: var(--color-accent-blue);
 }
 
+.timeframe-selectors {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.timeframe-selector-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.timeframe-selector-label {
+  flex-shrink: 0;
+  width: 5.75rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  letter-spacing: 0.02em;
+}
+
 .timeframe-selector {
   display: flex;
   flex-direction: row;
@@ -680,6 +703,43 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--color-text-muted);
+}
+
+.trade-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+}
+
+.trade-input-wrap:has(.trade-max-btn) .trade-input {
+  padding-right: 3.25rem;
+}
+
+.trade-max-btn {
+  position: absolute;
+  top: 50%;
+  right: 0.375rem;
+  transform: translateY(-50%);
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--color-border-default);
+  border-radius: 5px;
+  background: var(--color-bg-elevated, var(--color-bg-page));
+  color: var(--color-accent-blue);
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.trade-max-btn:hover {
+  background: color-mix(in srgb, var(--color-accent-blue) 12%, transparent);
+  border-color: var(--color-accent-blue);
+}
+
+.trade-max-btn:focus-visible {
+  outline: 2px solid var(--color-accent-blue);
+  outline-offset: 1px;
 }
 
 .trade-input {
@@ -1037,7 +1097,7 @@
   display: flex;
   flex-shrink: 0;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 0.5rem;
 }
