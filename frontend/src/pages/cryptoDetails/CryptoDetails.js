@@ -1,4 +1,11 @@
-import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import PropTypes from "prop-types";
 import { useNavigate, useParams } from "react-router-dom";
 import { AppContext } from "../../context/AppContext";
@@ -57,7 +64,10 @@ function formatAxisTick(ts, range) {
     return date.toLocaleTimeString("en-GB", opts);
   }
   if (LONG_DATE_RANGES.has(range)) {
-    return date.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      year: "numeric",
+    });
   }
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
@@ -65,22 +75,41 @@ function formatAxisTick(ts, range) {
 function formatTooltipDateTime(ts, range) {
   const date = toChartDate(ts);
   if (TIME_AXIS_RANGES.has(range)) {
-    const opts = { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false };
+    const opts = {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    };
     if (SECONDS_RANGES.has(range)) opts.second = "2-digit";
     return date.toLocaleString("en-GB", opts);
   }
   if (LONG_DATE_RANGES.has(range)) {
-    return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
   }
-  return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  return date.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
 }
 
 // ─── Price formatting ─────────────────────────────────────────────────────────
 
 function formatQuote(value) {
-  if (value == null || value === "---" || Number.isNaN(Number(value))) return "---";
+  if (value == null || value === "---" || Number.isNaN(Number(value)))
+    return "---";
   const num = Number(value);
-  if (num >= 1000) return num.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (num >= 1000)
+    return num.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
   if (num >= 1) return num.toFixed(4);
   return num.toFixed(6);
 }
@@ -91,7 +120,13 @@ function formatChartPrice(value) {
 }
 
 function formatPeriodChange(absoluteChange, percentChange) {
-  if (absoluteChange == null || percentChange == null || Number.isNaN(absoluteChange) || Number.isNaN(percentChange)) return "—";
+  if (
+    absoluteChange == null ||
+    percentChange == null ||
+    Number.isNaN(absoluteChange) ||
+    Number.isNaN(percentChange)
+  )
+    return "—";
   const sign = absoluteChange >= 0 ? "+" : "";
   return `${sign}${formatQuote(absoluteChange)} (${sign}${percentChange.toFixed(2)}%)`;
 }
@@ -99,7 +134,10 @@ function formatPeriodChange(absoluteChange, percentChange) {
 function formatCompactUsd(value) {
   if (value == null || Number.isNaN(Number(value))) return "—";
   return new Intl.NumberFormat("en-US", {
-    style: "currency", currency: "USD", notation: "compact", maximumFractionDigits: 2,
+    style: "currency",
+    currency: "USD",
+    notation: "compact",
+    maximumFractionDigits: 2,
   }).format(value);
 }
 
@@ -112,7 +150,11 @@ function formatAthDate(iso) {
   if (!iso) return "";
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 // ─── Tick→OHLC aggregation (for candle mode on tick ranges) ──────────────────
@@ -127,7 +169,13 @@ function aggregateTicksToOhlc(ticks, windowMs) {
       w.low = Math.min(w.low, tick.price);
       w.close = tick.price;
     } else {
-      windows[key] = { timestamp: key, open: tick.price, high: tick.price, low: tick.price, close: tick.price };
+      windows[key] = {
+        timestamp: key,
+        open: tick.price,
+        high: tick.price,
+        low: tick.price,
+        close: tick.price,
+      };
     }
   }
   return Object.values(windows).sort((a, b) => a.timestamp - b.timestamp);
@@ -148,25 +196,35 @@ function renderCandleShape(props, yBounds) {
   const [yMin, yMax] = yBounds;
   if (yMax <= yMin) return null;
 
-  const chartH    = background.height;
+  const chartH = background.height;
   const chartTopY = background.y;
-  const toPx = (price) => chartTopY + (1 - (price - yMin) / (yMax - yMin)) * chartH;
+  const toPx = (price) =>
+    chartTopY + (1 - (price - yMin) / (yMax - yMin)) * chartH;
 
-  const highPx  = toPx(high);
-  const lowPx   = toPx(low);
-  const openPx  = toPx(open);
+  const highPx = toPx(high);
+  const lowPx = toPx(low);
+  const openPx = toPx(open);
   const closePx = toPx(close);
 
-  const isUp      = close >= open;
-  const color     = isUp ? "var(--color-buy-text, #22c55e)" : "var(--color-sell-text, #ef4444)";
-  const candleX   = x + width / 2;
+  const isUp = close >= open;
+  const color = isUp
+    ? "var(--color-buy-text, #22c55e)"
+    : "var(--color-sell-text, #ef4444)";
+  const candleX = x + width / 2;
   const halfBodyW = Math.max(Math.floor(width * 0.36), 2);
-  const bodyTop   = Math.min(openPx, closePx);
-  const bodyH     = Math.max(Math.abs(closePx - openPx), 1);
+  const bodyTop = Math.min(openPx, closePx);
+  const bodyH = Math.max(Math.abs(closePx - openPx), 1);
 
   return (
     <g>
-      <line x1={candleX} y1={highPx} x2={candleX} y2={lowPx} stroke={color} strokeWidth={1} />
+      <line
+        x1={candleX}
+        y1={highPx}
+        x2={candleX}
+        y2={lowPx}
+        stroke={color}
+        strokeWidth={1}
+      />
       <rect
         x={candleX - halfBodyW}
         y={bodyTop}
@@ -234,7 +292,11 @@ function renderTooltipBody(point) {
       </div>
     );
   }
-  return <p className="chart-tooltip__price">Price: {formatChartPrice(point.price)}</p>;
+  return (
+    <p className="chart-tooltip__price">
+      Price: {formatChartPrice(point.price)}
+    </p>
+  );
 }
 
 function CustomTooltip({ active, payload, range }) {
@@ -244,7 +306,9 @@ function CustomTooltip({ active, payload, range }) {
 
   return (
     <div className="chart-tooltip">
-      <p className="chart-tooltip__datetime">{formatTooltipDateTime(point.timestamp, range)}</p>
+      <p className="chart-tooltip__datetime">
+        {formatTooltipDateTime(point.timestamp, range)}
+      </p>
       {renderTooltipBody(point)}
     </div>
   );
@@ -255,13 +319,18 @@ CustomTooltip.propTypes = {
   payload: PropTypes.arrayOf(
     PropTypes.shape({
       payload: PropTypes.object,
-    })
+    }),
   ),
   range: PropTypes.string.isRequired,
 };
 
 function computePeriodStats(displayData, isDisplayOhlc) {
-  const empty = { periodHigh: null, periodLow: null, absoluteChange: null, percentChange: null };
+  const empty = {
+    periodHigh: null,
+    periodLow: null,
+    absoluteChange: null,
+    percentChange: null,
+  };
   if (!displayData?.length) return empty;
 
   let periodHigh;
@@ -276,15 +345,17 @@ function computePeriodStats(displayData, isDisplayOhlc) {
 
   const first = displayData[0];
   const last = displayData[displayData.length - 1];
-  const startPrice = isDisplayOhlc && first.open != null ? first.open : first.price;
-  const endPrice = isDisplayOhlc && last.close != null ? last.close : last.price;
+  const startPrice =
+    isDisplayOhlc && first.open != null ? first.open : first.price;
+  const endPrice =
+    isDisplayOhlc && last.close != null ? last.close : last.price;
 
   if (
-    startPrice == null
-    || endPrice == null
-    || Number.isNaN(startPrice)
-    || Number.isNaN(endPrice)
-    || startPrice === 0
+    startPrice == null ||
+    endPrice == null ||
+    Number.isNaN(startPrice) ||
+    Number.isNaN(endPrice) ||
+    startPrice === 0
   ) {
     return { periodHigh, periodLow, absoluteChange: null, percentChange: null };
   }
@@ -294,7 +365,15 @@ function computePeriodStats(displayData, isDisplayOhlc) {
   return { periodHigh, periodLow, absoluteChange, percentChange };
 }
 
-function ChartCandleView({ displayData, range, candleYBounds, OhlcCandleShape, sharedXAxis, sharedYAxis, sharedTooltip }) {
+function ChartCandleView({
+  displayData,
+  range,
+  candleYBounds,
+  OhlcCandleShape,
+  sharedXAxis,
+  sharedYAxis,
+  sharedTooltip,
+}) {
   return (
     <ResponsiveContainer width="100%" height="100%">
       <ComposedChart
@@ -402,25 +481,53 @@ ChartLineView.propTypes = {
 
 function StatsDashboard({ isLoadingStats, stats, periodStats }) {
   return (
-    <div className="unified-stats-container" aria-label="Market and period statistics">
+    <div
+      className="unified-stats-container"
+      aria-label="Market and period statistics"
+    >
       <div className="stats-row">
-        <StatCard label="Market Rank" value={formatMarketRank(isLoadingStats, stats?.rank)} />
-        <StatCard label="Market Cap" value={isLoadingStats ? "…" : formatCompactUsd(stats?.marketCap)} />
-        <StatCard label="Circulating Supply" value={isLoadingStats ? "…" : formatSupply(stats?.supply)} />
-        <StatCard label="24h Volume" value={isLoadingStats ? "…" : formatCompactUsd(stats?.volume)} />
+        <StatCard
+          label="Market Rank"
+          value={formatMarketRank(isLoadingStats, stats?.rank)}
+        />
+        <StatCard
+          label="Market Cap"
+          value={isLoadingStats ? "…" : formatCompactUsd(stats?.marketCap)}
+        />
+        <StatCard
+          label="Circulating Supply"
+          value={isLoadingStats ? "…" : formatSupply(stats?.supply)}
+        />
+        <StatCard
+          label="24h Volume"
+          value={isLoadingStats ? "…" : formatCompactUsd(stats?.volume)}
+        />
       </div>
       <div className="stats-row">
-        <StatCard label="Period High" value={formatChartPrice(periodStats.periodHigh)} />
-        <StatCard label="Period Low" value={formatChartPrice(periodStats.periodLow)} />
+        <StatCard
+          label="Period High"
+          value={formatChartPrice(periodStats.periodHigh)}
+        />
+        <StatCard
+          label="Period Low"
+          value={formatChartPrice(periodStats.periodLow)}
+        />
         <StatCard
           label="Period Change"
-          value={formatPeriodChange(periodStats.absoluteChange, periodStats.percentChange)}
+          value={formatPeriodChange(
+            periodStats.absoluteChange,
+            periodStats.percentChange,
+          )}
           valueClassName={getPeriodChangeClassName(periodStats.absoluteChange)}
         />
         <StatCard
           label="All-Time High"
           value={isLoadingStats ? "…" : formatCompactUsd(stats?.ath)}
-          subValue={isLoadingStats || !stats?.athDate ? undefined : formatAthDate(stats.athDate)}
+          subValue={
+            isLoadingStats || !stats?.athDate
+              ? undefined
+              : formatAthDate(stats.athDate)
+          }
         />
       </div>
     </div>
@@ -457,7 +564,7 @@ function buildTradeNotice(mode, result, baseAsset) {
   const amount = formatCryptoAmount(result?.cryptoAmount);
   const price = formatBalanceUsd(result?.unitPrice);
   const total = formatBalanceUsd(
-    result?.fiatChange != null ? Math.abs(Number(result.fiatChange)) : null
+    result?.fiatChange != null ? Math.abs(Number(result.fiatChange)) : null,
   );
 
   return {
@@ -477,7 +584,9 @@ function TradeFeedbackCard({ item }) {
         role="alert"
         aria-live="assertive"
       >
-        <span className="trade-form-error-icon" aria-hidden="true">!</span>
+        <span className="trade-form-error-icon" aria-hidden="true">
+          !
+        </span>
         <p className="trade-form-error-text">{item.message}</p>
         <div
           className="trade-form-error-progress"
@@ -514,7 +623,15 @@ TradeFeedbackCard.propTypes = {
   }).isRequired,
 };
 
-function OrderPanel({ bid, ask, previousBid, previousAsk, ownedAmount, baseAsset, onConfirm }) {
+function OrderPanel({
+  bid,
+  ask,
+  previousBid,
+  previousAsk,
+  ownedAmount,
+  baseAsset,
+  onConfirm,
+}) {
   const [tradeMode, setTradeMode] = useState("buy");
   const [cryptoInput, setCryptoInput] = useState("");
   const [usdInput, setUsdInput] = useState("");
@@ -547,7 +664,8 @@ function OrderPanel({ bid, ask, previousBid, previousAsk, ownedAmount, baseAsset
 
   const tradeAmount = resolveTradeAmount();
   const isValidAmount = tradeAmount != null && tradeAmount > 0;
-  const exceedsOwned = tradeMode === "sell" && isValidAmount && tradeAmount > ownedAmount;
+  const exceedsOwned =
+    tradeMode === "sell" && isValidAmount && tradeAmount > ownedAmount;
 
   const syncFromCrypto = useCallback((cryptoValue, price) => {
     const num = Number.parseFloat(cryptoValue);
@@ -586,20 +704,29 @@ function OrderPanel({ bid, ask, previousBid, previousAsk, ownedAmount, baseAsset
     setTradeFeedbacks((items) => items.filter((item) => item.id !== id));
   }, []);
 
-  const scheduleTradeFeedbackRemoval = useCallback((id, durationMs) => {
-    const timerId = setTimeout(() => removeTradeFeedback(id), durationMs);
-    feedbackTimersRef.current.set(id, timerId);
-  }, [removeTradeFeedback]);
+  const scheduleTradeFeedbackRemoval = useCallback(
+    (id, durationMs) => {
+      const timerId = setTimeout(() => removeTradeFeedback(id), durationMs);
+      feedbackTimersRef.current.set(id, timerId);
+    },
+    [removeTradeFeedback],
+  );
 
-  const pushTradeFeedback = useCallback((item) => {
-    setTradeFeedbacks((items) => [item, ...items]);
-    scheduleTradeFeedbackRemoval(item.id, item.durationMs);
-  }, [scheduleTradeFeedbackRemoval]);
+  const pushTradeFeedback = useCallback(
+    (item) => {
+      setTradeFeedbacks((items) => [item, ...items]);
+      scheduleTradeFeedbackRemoval(item.id, item.durationMs);
+    },
+    [scheduleTradeFeedbackRemoval],
+  );
 
-  useEffect(() => () => {
-    feedbackTimersRef.current.forEach((timerId) => clearTimeout(timerId));
-    feedbackTimersRef.current.clear();
-  }, []);
+  useEffect(
+    () => () => {
+      feedbackTimersRef.current.forEach((timerId) => clearTimeout(timerId));
+      feedbackTimersRef.current.clear();
+    },
+    [],
+  );
 
   const clearTradeErrors = useCallback(() => {
     setTradeFeedbacks((items) => {
@@ -616,23 +743,29 @@ function OrderPanel({ bid, ask, previousBid, previousAsk, ownedAmount, baseAsset
     });
   }, []);
 
-  const showTradeError = useCallback((message) => {
-    pushTradeFeedback({
-      id: createTradeFeedbackId(),
-      type: "error",
-      message,
-      durationMs: TRADE_ERROR_DURATION_MS,
-    });
-  }, [pushTradeFeedback]);
+  const showTradeError = useCallback(
+    (message) => {
+      pushTradeFeedback({
+        id: createTradeFeedbackId(),
+        type: "error",
+        message,
+        durationMs: TRADE_ERROR_DURATION_MS,
+      });
+    },
+    [pushTradeFeedback],
+  );
 
-  const showTradeNotice = useCallback((notice) => {
-    pushTradeFeedback({
-      id: createTradeFeedbackId(),
-      type: "notice",
-      durationMs: TRADE_NOTICE_DURATION_MS,
-      ...notice,
-    });
-  }, [pushTradeFeedback]);
+  const showTradeNotice = useCallback(
+    (notice) => {
+      pushTradeFeedback({
+        id: createTradeFeedbackId(),
+        type: "notice",
+        durationMs: TRADE_NOTICE_DURATION_MS,
+        ...notice,
+      });
+    },
+    [pushTradeFeedback],
+  );
 
   const hasActiveError = tradeFeedbacks.some((item) => item.type === "error");
 
@@ -661,10 +794,7 @@ function OrderPanel({ bid, ask, previousBid, previousAsk, ownedAmount, baseAsset
   };
 
   const canConfirm =
-    isValidAmount &&
-    !exceedsOwned &&
-    activePrice != null &&
-    !isSubmitting;
+    isValidAmount && !exceedsOwned && activePrice != null && !isSubmitting;
 
   const resolveInvalidTradeMessage = () => {
     if (isSubmitting) return "Trade already in progress";
@@ -745,7 +875,10 @@ function OrderPanel({ bid, ask, previousBid, previousAsk, ownedAmount, baseAsset
   return (
     <aside className="order-section" aria-label="Order panel">
       <div className="order-panel-controls">
-        <div className="owned-holdings" aria-label="Your holdings for this asset">
+        <div
+          className="owned-holdings"
+          aria-label="Your holdings for this asset"
+        >
           <span className="owned-holdings-label">You own</span>
           <span className="owned-holdings-amount">
             {formatBalance(ownedAmount)} {baseAsset}
@@ -762,7 +895,12 @@ function OrderPanel({ bid, ask, previousBid, previousAsk, ownedAmount, baseAsset
             <div className="ask-box">
               <p className="quote-label">ASK (Buy Price)</p>
               <p className="quote-price">
-                <FlashPrice value={ask} previousValue={previousAsk} showChange changeLayout="stacked">
+                <FlashPrice
+                  value={ask}
+                  previousValue={previousAsk}
+                  showChange
+                  changeLayout="stacked"
+                >
                   {formatQuote(ask)}
                 </FlashPrice>
               </p>
@@ -772,7 +910,12 @@ function OrderPanel({ bid, ask, previousBid, previousAsk, ownedAmount, baseAsset
             <div className="bid-box">
               <p className="quote-label">BID (Sell Price)</p>
               <p className="quote-price">
-                <FlashPrice value={bid} previousValue={previousBid} showChange changeLayout="stacked">
+                <FlashPrice
+                  value={bid}
+                  previousValue={previousBid}
+                  showChange
+                  changeLayout="stacked"
+                >
                   {formatQuote(bid)}
                 </FlashPrice>
               </p>
@@ -786,7 +929,9 @@ function OrderPanel({ bid, ask, previousBid, previousAsk, ownedAmount, baseAsset
           aria-label="Trade operation"
         >
           <span className="trade-mode-indicator" aria-hidden="true" />
-          <label className={`trade-mode-option${tradeMode === "buy" ? " active" : ""}`}>
+          <label
+            className={`trade-mode-option${tradeMode === "buy" ? " active" : ""}`}
+          >
             <input
               type="radio"
               name="trade-mode"
@@ -799,7 +944,9 @@ function OrderPanel({ bid, ask, previousBid, previousAsk, ownedAmount, baseAsset
             />
             <span className="trade-mode-label">Buy</span>
           </label>
-          <label className={`trade-mode-option${tradeMode === "sell" ? " active" : ""}`}>
+          <label
+            className={`trade-mode-option${tradeMode === "sell" ? " active" : ""}`}
+          >
             <input
               type="radio"
               name="trade-mode"
@@ -847,9 +994,7 @@ function OrderPanel({ bid, ask, previousBid, previousAsk, ownedAmount, baseAsset
             />
           </label>
 
-          <p className="trade-rate-hint">
-            @ {formatQuote(activePrice)}
-          </p>
+          <p className="trade-rate-hint">@ {formatQuote(activePrice)}</p>
 
           {exceedsOwned && (
             <p className="trade-error">
@@ -863,7 +1008,9 @@ function OrderPanel({ bid, ask, previousBid, previousAsk, ownedAmount, baseAsset
             onClick={handleConfirm}
             disabled={!canConfirm}
           >
-            {isSubmitting ? "Processing…" : `Confirm ${tradeMode === "buy" ? "Buy" : "Sell"}`}
+            {isSubmitting
+              ? "Processing…"
+              : `Confirm ${tradeMode === "buy" ? "Buy" : "Sell"}`}
           </button>
         </div>
       </div>
@@ -905,15 +1052,16 @@ const CryptoDetails = () => {
   const { cryptoCode = "" } = useParams();
   const navigate = useNavigate();
   const { assets } = useContext(AppContext);
-  const { isFavorite, toggleFavorite, registerOpened, unregisterOpened } = useFavorites();
+  const { isFavorite, toggleFavorite, registerOpened, unregisterOpened } =
+    useFavorites();
 
-  const buy  = useBuy();
+  const buy = useBuy();
   const sell = useSell();
   const prices = usePrices();
   useAssets();
 
   const [chartMode, setChartMode] = useState("line"); // 'line' | 'candle'
-  const [lineMode,  setLineMode]  = useState("mid");  // 'mid'  | 'spread'
+  const [lineMode, setLineMode] = useState("mid"); // 'mid'  | 'spread'
 
   const symbol = String(cryptoCode).replace("-", "/").toUpperCase();
   const baseAsset = getBaseAsset(symbol).toUpperCase();
@@ -927,7 +1075,11 @@ const CryptoDetails = () => {
     const asset = assets.find((item) => item.cryptoCode === symbol);
     return asset ? Number(asset.cryptoAmount) : 0;
   }, [assets, symbol]);
-  const { chartData, isLoading, chartType, range, setRange } = useLiveChart(cryptoCode, "1Min", chartMode);
+  const { chartData, isLoading, chartType, range, setRange } = useLiveChart(
+    cryptoCode,
+    "1Min",
+    chartMode,
+  );
   const { stats, isLoadingStats } = useCoinStats(symbol);
 
   // ── Derived display data ────────────────────────────────────────────────────
@@ -945,7 +1097,7 @@ const CryptoDetails = () => {
     if (chartMode !== "candle" || displayData.length === 0) return null;
     const first = displayData[0];
     if (first.high == null) return null;
-    const minLow  = Math.min(...displayData.map((d) => d.low));
+    const minLow = Math.min(...displayData.map((d) => d.low));
     const maxHigh = Math.max(...displayData.map((d) => d.high));
     const pad = (maxHigh - minLow) * 0.04;
     return [minLow - pad, maxHigh + pad];
@@ -953,29 +1105,30 @@ const CryptoDetails = () => {
 
   const OhlcCandleShape = useCallback(
     (props) => renderCandleShape(props, candleYBounds),
-    [candleYBounds]
+    [candleYBounds],
   );
 
   // ── Period stats ────────────────────────────────────────────────────────────
 
   const periodStats = useMemo(
     () => computePeriodStats(displayData, isDisplayOhlc),
-    [displayData, isDisplayOhlc]
+    [displayData, isDisplayOhlc],
   );
 
   // ── Live order book ─────────────────────────────────────────────────────────
 
   const liveTick = useMemo(
     () => prices.find((tick) => tick.symbol === symbol),
-    [prices, symbol]
+    [prices, symbol],
   );
 
-  const bid         = liveTick?.bid         ?? null;
-  const ask         = liveTick?.ask         ?? null;
+  const bid = liveTick?.bid ?? null;
+  const ask = liveTick?.ask ?? null;
   const previousBid = liveTick?.previousBid ?? null;
   const previousAsk = liveTick?.previousAsk ?? null;
 
-  const hasSpreadData = chartType === "TICK" &&
+  const hasSpreadData =
+    chartType === "TICK" &&
     displayData.some((d) => d.bid != null && d.ask != null);
 
   // ── Trade handlers ──────────────────────────────────────────────────────────
@@ -1027,7 +1180,11 @@ const CryptoDetails = () => {
   return (
     <div className="crypto-details-container crypto-details-page">
       <header className="terminal-header">
-        <button type="button" className="crypto-back-btn" onClick={() => navigate("/market")}>
+        <button
+          type="button"
+          className="crypto-back-btn"
+          onClick={() => navigate("/market")}
+        >
           ← Markets
         </button>
         <div className="crypto-symbol-row">
@@ -1044,7 +1201,9 @@ const CryptoDetails = () => {
             type="button"
             className={`crypto-favorite-btn${favorited ? " active" : ""}`}
             onClick={() => toggleFavorite(cryptoCode)}
-            aria-label={favorited ? "Remove from favorites" : "Add to favorites"}
+            aria-label={
+              favorited ? "Remove from favorites" : "Add to favorites"
+            }
             aria-pressed={favorited}
             title={favorited ? "Remove from favorites" : "Add to favorites"}
           >
@@ -1055,10 +1214,13 @@ const CryptoDetails = () => {
 
       <div className="terminal-main">
         <section className="chart-section" aria-label="Live price chart">
-
           {/* ── Timeframe + chart-mode controls ── */}
           <div className="chart-controls-bar">
-            <div className="timeframe-selector" role="tablist" aria-label="Chart timeframe">
+            <div
+              className="timeframe-selector"
+              role="tablist"
+              aria-label="Chart timeframe"
+            >
               {CHART_RANGES.map((tf) => (
                 <button
                   key={tf}
@@ -1105,9 +1267,15 @@ const CryptoDetails = () => {
                   <button
                     type="button"
                     className={`chart-mode-btn spread-btn${lineMode === "spread" ? " active" : ""}${hasSpreadData ? "" : " disabled"}`}
-                    onClick={() => { if (hasSpreadData) setLineMode("spread"); }}
+                    onClick={() => {
+                      if (hasSpreadData) setLineMode("spread");
+                    }}
                     disabled={hasSpreadData === false}
-                    title={hasSpreadData ? undefined : "Spread data available for live tick ranges only"}
+                    title={
+                      hasSpreadData
+                        ? undefined
+                        : "Spread data available for live tick ranges only"
+                    }
                   >
                     Spread
                   </button>
@@ -1150,7 +1318,9 @@ const CryptoDetails = () => {
             )}
 
             {isLoading && displayData.length > 0 && (
-              <div className="chart-loading-badge" aria-live="polite">Updating…</div>
+              <div className="chart-loading-badge" aria-live="polite">
+                Updating…
+              </div>
             )}
           </div>
 
