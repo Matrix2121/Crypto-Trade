@@ -1,10 +1,11 @@
 import { useContext } from "react";
 import { AppContext } from "../context/AppContext";
+import { readTradeErrorMessage } from "../utils/parseTradeError";
 
 const useSell = () => {
   const { user, setLastOperation } = useContext(AppContext);
   
-  const sell = async (cryptoCode, cryptoAmount) => {
+  const sell = async (cryptoCode, tradePayload) => {
     if (!user) return;
     const token = localStorage.getItem("jwt");
     if (!token) throw new Error("Missing auth token");
@@ -17,10 +18,10 @@ const useSell = () => {
             "Content-Type": "application/json",
             Authorization: "Bearer " + token,
           },
-          body: JSON.stringify({ cryptoCode, cryptoAmount }),
+          body: JSON.stringify({ cryptoCode, ...tradePayload }),
         }
       );
-      if (!res.ok) throw new Error("Trade failed");
+      if (!res.ok) throw new Error(await readTradeErrorMessage(res));
       const data = await res.json();
       setLastOperation(data);
       return data;
