@@ -5,7 +5,7 @@ import usePrices, { getTickMidPrice } from "./usePrices";
 
 export const CHART_RANGES = [
   "1Min", "5Min", "15Min",
-  "1H", "1D", "1W", "1M", "3M", "1Y", "5Y",
+  "1H", "1D", "1W", "1M", "3M", "1Y", "5Y", "ALL",
 ];
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -31,6 +31,7 @@ const OHLC_WINDOW_MS = {
   "3M":  90 * 24 * 60 * 60 * 1_000,
   "1Y": 365 * 24 * 60 * 60 * 1_000,
   "5Y": 5 * 365 * 24 * 60 * 60 * 1_000,
+  "ALL": null,
 };
 
 const LIVE_OHLC_RANGES = Object.keys(OHLC_WINDOW_MS);
@@ -41,7 +42,7 @@ const EMPTY_CACHE = {
   masterTicks:      [],
   master15sCandles: [],
   "1H": null, "1D": null, "1W": null,
-  "1M": null, "3M": null, "1Y": null, "5Y": null,
+  "1M": null, "3M": null, "1Y": null, "5Y": null, "ALL": null,
 };
 
 // ─── Pure helpers ─────────────────────────────────────────────────────────────
@@ -188,7 +189,7 @@ const useLiveChart = (symbol, initialRange = "1Min", chartMode = "line") => {
     if (SHORT_TERM_RANGES.has(range)) return undefined; // handled by Effect A
 
     const windowMs = OHLC_WINDOW_MS[range];
-    if (windowMs == null) return undefined;
+    if (!(range in OHLC_WINDOW_MS)) return undefined;
 
     // Cache hit
     const cached = cache.current[range];

@@ -27,31 +27,38 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 public class MarketDataSyncService {
 
-    private record IntervalSpec(int krakenInterval, String intervalString, long lookbackDays) {}
+    private record IntervalSpec(int krakenInterval, String intervalString, Long lookbackDays) {}
+
+    private static final long MS_PER_DAY = 24L * 60 * 60 * 1000L;
+    private static final long FIVE_YEARS_MS = 5L * 365 * MS_PER_DAY;
 
     private static final List<IntervalSpec> INTERVALS = List.of(
-            new IntervalSpec(1440, "1d",  5 * 365L),
+            new IntervalSpec(1440, "1d",  null),
             new IntervalSpec(240,  "4h",  90L),
             new IntervalSpec(60,   "1h",  30L),
-            new IntervalSpec(5,    "5m",  1L));
+            new IntervalSpec(30,   "30m", 7L),
+            new IntervalSpec(1,    "1m",  2L));
 
     private final OhlcDataRepository ohlcDataRepository;
     private final LiveTickCacheService liveTickCacheService;
     private final KrakenOhlcClient krakenOhlcClient;
     private final KrakenTradesClient krakenTradesClient;
     private final TrackedSymbolsService trackedSymbolsService;
+    private final TickAggregationService tickAggregationService;
 
     public MarketDataSyncService(
             OhlcDataRepository ohlcDataRepository,
             LiveTickCacheService liveTickCacheService,
             KrakenOhlcClient krakenOhlcClient,
             KrakenTradesClient krakenTradesClient,
-            TrackedSymbolsService trackedSymbolsService) {
+            TrackedSymbolsService trackedSymbolsService,
+            TickAggregationService tickAggregationService) {
         this.ohlcDataRepository = ohlcDataRepository;
         this.liveTickCacheService = liveTickCacheService;
         this.krakenOhlcClient = krakenOhlcClient;
         this.krakenTradesClient = krakenTradesClient;
         this.trackedSymbolsService = trackedSymbolsService;
+        this.tickAggregationService = tickAggregationService;
     }
 
     @Scheduled(cron = "0 0 0 * * ?")
@@ -94,6 +101,12 @@ public class MarketDataSyncService {
         } catch (Exception e) {
             log.error("Tick sync failed for {}: {}", symbol, e.getMessage(), e);
         }
+
+        try {
+            tickAggregationService.backfillSyntheticIntervals(symbol);
+        } catch (Exception e) {
+            log.error("Synthetic interval backfill failed for {}: {}", symbol, e.getMessage(), e);
+        }
     }
 
     private void syncOhlcInterval(String symbol, IntervalSpec spec) {
@@ -101,7 +114,9 @@ public class MarketDataSyncService {
                 symbol, spec.intervalString());
 
         List<OhlcDto> candles;
-        if (maxTimestamp != null) {
+        if (spec.lookbackDays() == null) {
+            candles = syncFullKrakenHistory(symbol, spec, maxTimestamp);
+        } else if (maxTimestamp != null) {
             candles = krakenOhlcClient.fetchOhlc(symbol, spec.krakenInterval(), maxTimestamp);
             log.debug("Incremental OHLC sync for {} {} since {}",
                     symbol, spec.intervalString(), maxTimestamp);
@@ -141,6 +156,51 @@ public class MarketDataSyncService {
 
         log.debug("Saved {} {} candles for {} ({} raw from Kraken)",
                 deduped.size(), spec.intervalString(), symbol, entities.size());
+    }
+
+    /**
+     * Fetches daily candles from Kraken listing through now. Extends backward when
+     * the DB only has a partial window (e.g. prior 5-year cap), then appends new
+     * candles since the latest stored timestamp.
+     */
+    private List<OhlcDto> syncFullKrakenHistory(String symbol, IntervalSpec spec, Long maxTimestamp) {
+        Map<Long, OhlcDto> merged = new HashMap<>();
+
+        Long minTimestamp = ohlcDataRepository.findMinTimestampBySymbolAndIntervalString(
+                symbol, spec.intervalString());
+        boolean needsBackwardExtension = minTimestamp == null
+                || minTimestamp > System.currentTimeMillis() - FIVE_YEARS_MS;
+
+        if (needsBackwardExtension) {
+            List<OhlcDto> fromListing = krakenOhlcClient.fetchOhlcSince(
+                    symbol, spec.krakenInterval(), 0L);
+            for (OhlcDto candle : fromListing) {
+                if (minTimestamp == null || candle.timestamp() < minTimestamp) {
+                    merged.put(candle.timestamp(), candle);
+                }
+            }
+            log.info("Extended Kraken {} history backward for {} ({} older candles)",
+                    spec.intervalString(), symbol, merged.size());
+        }
+
+        if (maxTimestamp != null) {
+            for (OhlcDto candle : krakenOhlcClient.fetchOhlc(
+                    symbol, spec.krakenInterval(), maxTimestamp)) {
+                merged.put(candle.timestamp(), candle);
+            }
+        } else if (merged.isEmpty()) {
+            List<OhlcDto> fromListing = krakenOhlcClient.fetchOhlcSince(
+                    symbol, spec.krakenInterval(), 0L);
+            for (OhlcDto candle : fromListing) {
+                merged.put(candle.timestamp(), candle);
+            }
+            log.info("Full Kraken {} history backfill for {} ({} candles)",
+                    spec.intervalString(), symbol, merged.size());
+        }
+
+        return merged.values().stream()
+                .sorted(Comparator.comparingLong(OhlcDto::timestamp))
+                .toList();
     }
 
     private void syncTicks(String symbol) {

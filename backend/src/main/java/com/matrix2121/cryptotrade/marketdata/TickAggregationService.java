@@ -22,20 +22,33 @@ import lombok.extern.slf4j.Slf4j;
  * Cascading OHLC aggregator.
  *
  * <pre>
- * Every 5 min  : LiveTickCacheService (RAM) → ohlc_data (interval "5m")
- * Every 1 hour : ohlc_data "5m"   → ohlc_data "1h"
- * Every 6 hours: ohlc_data "1h"   → ohlc_data "6h"
- * Every 24 hours: ohlc_data "6h"  → ohlc_data "1d"
+ * Every 1 min   : LiveTickCacheService (RAM) → ohlc_data (interval "1m")
+ * Every 30 min  : ohlc_data "1m"  → ohlc_data "30m"
+ * Every 2 hours : ohlc_data "1h"  → ohlc_data "2h"
+ * Every 8 hours : ohlc_data "4h"  → ohlc_data "8h"
+ * Every 24 hours: ohlc_data "1d"  → ohlc_data "5d" and "1mo"
  * </pre>
  */
 @Slf4j
 @Service
 public class TickAggregationService {
 
-    private static final long FIVE_MIN_MS = 5L * 60 * 1_000;
+    private static final long ONE_MIN_MS = 60_000L;
+    private static final long THIRTY_MIN_MS = 30L * ONE_MIN_MS;
     private static final long MS_PER_HOUR = 60L * 60 * 1_000;
-    private static final long SIX_HOUR_MS =  6L * MS_PER_HOUR;
-    private static final long MS_PER_DAY  = 24L * MS_PER_HOUR;
+    private static final long TWO_HOUR_MS = 2L * MS_PER_HOUR;
+    private static final long EIGHT_HOUR_MS = 8L * MS_PER_HOUR;
+    private static final long MS_PER_DAY = 24L * MS_PER_HOUR;
+    private static final long FIVE_DAY_MS = 5L * MS_PER_DAY;
+    private static final long ONE_MONTH_MS = 30L * MS_PER_DAY;
+
+    private static final List<SyntheticSpec> SYNTHETIC_SPECS = List.of(
+            new SyntheticSpec("1h", "2h", TWO_HOUR_MS),
+            new SyntheticSpec("4h", "8h", EIGHT_HOUR_MS),
+            new SyntheticSpec("1d", "5d", FIVE_DAY_MS),
+            new SyntheticSpec("1d", "1mo", ONE_MONTH_MS));
+
+    private record SyntheticSpec(String sourceInterval, String targetInterval, long windowMs) {}
 
     private final OhlcDataRepository ohlcDataRepository;
     private final LiveTickCacheService liveTickCacheService;
@@ -50,11 +63,11 @@ public class TickAggregationService {
         this.trackedSymbolsService = trackedSymbolsService;
     }
 
-    @Scheduled(cron = "0 0/5 * * * ?")
+    @Scheduled(cron = "0 * * * * ?")
     @Transactional
-    public void aggregate5m() {
-        long now   = System.currentTimeMillis();
-        long start = now - FIVE_MIN_MS;
+    public void aggregate1m() {
+        long now = System.currentTimeMillis();
+        long start = now - ONE_MIN_MS;
 
         for (String symbol : trackedSymbolsService.getSymbols()) {
             try {
@@ -64,34 +77,97 @@ public class TickAggregationService {
                     continue;
                 }
                 List<OhlcData> candles =
-                        buildCandlesFromTicks(symbol, "5m", FIVE_MIN_MS, windowTicks);
-                replaceOhlcInRange(symbol, "5m", start, now, candles);
-                log.debug("5m: {} candles for {}", candles.size(), symbol);
+                        buildCandlesFromTicks(symbol, "1m", ONE_MIN_MS, windowTicks);
+                upsertOhlcCandles(symbol, "1m", candles);
+                log.debug("1m: {} candles for {}", candles.size(), symbol);
             } catch (Exception e) {
-                log.error("5m aggregation failed for {}: {}", symbol, e.getMessage(), e);
+                log.error("1m aggregation failed for {}: {}", symbol, e.getMessage(), e);
             }
         }
     }
 
-    @Scheduled(cron = "0 0 * * * ?")
+    @Scheduled(cron = "0 0/30 * * * ?")
     @Transactional
-    public void aggregate1h() {
+    public void aggregate30m() {
         long now = System.currentTimeMillis();
-        aggregateOhlcFromOhlc("5m", "1h", MS_PER_HOUR, now - MS_PER_HOUR, now);
+        aggregateOhlcFromOhlc("1m", "30m", THIRTY_MIN_MS, now - THIRTY_MIN_MS, now);
     }
 
-    @Scheduled(cron = "0 0 0/6 * * ?")
+    @Scheduled(cron = "0 0 0/2 * * ?")
     @Transactional
-    public void aggregate6h() {
+    public void aggregate2h() {
         long now = System.currentTimeMillis();
-        aggregateOhlcFromOhlc("1h", "6h", SIX_HOUR_MS, now - SIX_HOUR_MS, now);
+        aggregateOhlcFromOhlc("1h", "2h", TWO_HOUR_MS, now - TWO_HOUR_MS, now);
+    }
+
+    @Scheduled(cron = "0 0 0/8 * * ?")
+    @Transactional
+    public void aggregate8h() {
+        long now = System.currentTimeMillis();
+        aggregateOhlcFromOhlc("4h", "8h", EIGHT_HOUR_MS, now - EIGHT_HOUR_MS, now);
     }
 
     @Scheduled(cron = "0 0 0 * * ?")
     @Transactional
-    public void aggregate1d() {
+    public void aggregate5dAnd1mo() {
         long now = System.currentTimeMillis();
-        aggregateOhlcFromOhlc("6h", "1d", MS_PER_DAY, now - MS_PER_DAY, now);
+        aggregateOhlcFromOhlc("1d", "5d", FIVE_DAY_MS, now - FIVE_DAY_MS, now);
+        aggregateOhlcFromOhlc("1d", "1mo", ONE_MONTH_MS, now - ONE_MONTH_MS, now);
+    }
+
+    @Transactional
+    public void backfillSyntheticIntervals(String symbol) {
+        for (SyntheticSpec spec : SYNTHETIC_SPECS) {
+            try {
+                backfillSyntheticInterval(symbol, spec);
+            } catch (Exception e) {
+                log.error("Synthetic backfill failed for {} {}: {}",
+                        symbol, spec.targetInterval(), e.getMessage(), e);
+            }
+        }
+    }
+
+    private void backfillSyntheticInterval(String symbol, SyntheticSpec spec) {
+        Long sourceMax = ohlcDataRepository.findMaxTimestampBySymbolAndIntervalString(
+                symbol, spec.sourceInterval());
+        if (sourceMax == null) {
+            log.debug("No {} source data for {} — skipping {} backfill",
+                    spec.sourceInterval(), symbol, spec.targetInterval());
+            return;
+        }
+
+        Long targetMax = ohlcDataRepository.findMaxTimestampBySymbolAndIntervalString(
+                symbol, spec.targetInterval());
+        if (targetMax != null && targetMax >= sourceMax) {
+            log.debug("{} already up to date for {}", spec.targetInterval(), symbol);
+            return;
+        }
+
+        long since = 0L;
+        if (targetMax != null) {
+            since = Math.max(0L, targetMax - spec.windowMs());
+        }
+
+        List<OhlcData> source = ohlcDataRepository
+                .findBySymbolAndIntervalStringAndTimestampGreaterThanEqualOrderByTimestampAsc(
+                        symbol, spec.sourceInterval(), since);
+        if (source.isEmpty()) {
+            return;
+        }
+
+        List<OhlcData> candles = buildCandlesFromOhlc(
+                symbol, spec.targetInterval(), spec.windowMs(), source);
+        if (candles.isEmpty()) {
+            return;
+        }
+
+        long minTs = candles.get(0).getTimestamp();
+        long maxTs = candles.get(candles.size() - 1).getTimestamp();
+        upsertOhlcCandles(symbol, spec.targetInterval(), candles);
+
+        log.info("Backfilled {} {} candles for {} from {} ({} → {})",
+                candles.size(), spec.targetInterval(), symbol, spec.sourceInterval(),
+                minTs, maxTs);
     }
 
     private void aggregateOhlcFromOhlc(
@@ -111,7 +187,7 @@ public class TickAggregationService {
                 }
                 List<OhlcData> candles =
                         buildCandlesFromOhlc(symbol, targetInterval, targetWindowMs, source);
-                replaceOhlcInRange(symbol, targetInterval, since, now, candles);
+                upsertOhlcCandles(symbol, targetInterval, candles);
                 log.debug("{}: {} candles for {} from {} source rows",
                         targetInterval, candles.size(), symbol, source.size());
             } catch (Exception e) {
@@ -182,29 +258,29 @@ public class TickAggregationService {
                 first.getOpen(), high, low, last.getClose());
     }
 
-    private void replaceOhlcInRange(
-            String symbol, String intervalString, long startMs, long endMs,
-            List<OhlcData> candles) {
-
-        List<OhlcData> existing = ohlcDataRepository
-                .findBySymbolAndIntervalStringAndTimestampGreaterThanEqualOrderByTimestampAsc(
-                        symbol, intervalString, startMs);
-        List<OhlcData> toRemove = existing.stream()
-                .filter(r -> r.getTimestamp() <= endMs)
-                .toList();
-        if (!toRemove.isEmpty()) {
-            ohlcDataRepository.deleteAll(toRemove);
-            ohlcDataRepository.flush();
+    private void upsertOhlcCandles(String symbol, String intervalString, List<OhlcData> incoming) {
+        if (incoming.isEmpty()) {
+            return;
         }
 
         Map<Long, OhlcData> deduped = new HashMap<>();
-        for (OhlcData candle : candles) {
+        for (OhlcData candle : incoming) {
             deduped.put(candle.getTimestamp(), candle);
         }
 
         List<OhlcData> sorted = new ArrayList<>(deduped.values());
         sorted.sort(Comparator.comparingLong(OhlcData::getTimestamp));
-        ohlcDataRepository.saveAll(sorted);
+
+        for (OhlcData candle : sorted) {
+            ohlcDataRepository
+                    .findBySymbolAndIntervalStringAndTimestamp(
+                            symbol, intervalString, candle.getTimestamp())
+                    .ifPresent(existing -> {
+                        ohlcDataRepository.delete(existing);
+                        ohlcDataRepository.flush();
+                    });
+            ohlcDataRepository.save(candle);
+        }
         ohlcDataRepository.flush();
     }
 }

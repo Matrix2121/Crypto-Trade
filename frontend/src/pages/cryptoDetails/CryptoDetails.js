@@ -42,8 +42,24 @@ import "./CryptoDetails.css";
 // ─── Axis / tooltip formatting ────────────────────────────────────────────────
 
 const TIME_AXIS_RANGES = new Set(["1Min", "5Min", "15Min", "1H", "1D"]);
-const LONG_DATE_RANGES = new Set(["1Y", "5Y"]);
+const LONG_DATE_RANGES = new Set(["1Y", "5Y", "ALL"]);
 const SECONDS_RANGES = new Set(["1Min", "5Min", "15Min"]);
+
+const LIVE_CANDLE_PERIOD_MS = 15_000;
+
+const CANDLE_PERIOD_MS = {
+  "1Min": LIVE_CANDLE_PERIOD_MS,
+  "5Min": LIVE_CANDLE_PERIOD_MS,
+  "15Min": LIVE_CANDLE_PERIOD_MS,
+  "1H": 60_000,
+  "1D": 30 * 60_000,
+  "1W": 2 * 60 * 60_000,
+  "1M": 8 * 60 * 60_000,
+  "3M": 24 * 60 * 60_000,
+  "1Y": 5 * 24 * 60 * 60_000,
+  "5Y": 30 * 24 * 60 * 60_000,
+  "ALL": 30 * 24 * 60 * 60_000,
+};
 
 const LIVE_CHART_RANGES = [
   { value: "1Min", label: "1 min" },
@@ -58,6 +74,7 @@ const AGGREGATED_CHART_RANGES = [
   { value: "1M", label: "1M" },
   { value: "3M", label: "3M" },
   { value: "1Y", label: "1Y" },
+  { value: "ALL", label: "All" },
 ];
 
 function toTimestampMs(ts) {
@@ -112,6 +129,44 @@ function formatTooltipDateTime(ts, range) {
     month: "short",
     day: "numeric",
   });
+}
+
+function getCandlePeriodMs(range, chartMode, chartType) {
+  if (chartMode === "candle" && chartType === "TICK") {
+    return TICK_CANDLE_WINDOW_MS;
+  }
+  return CANDLE_PERIOD_MS[range] ?? 60_000;
+}
+
+function formatTimeEndpoint(date, periodMs) {
+  const opts = { hour: "2-digit", minute: "2-digit", hour12: false };
+  if (periodMs <= LIVE_CANDLE_PERIOD_MS) opts.second = "2-digit";
+  return date.toLocaleTimeString("en-GB", opts);
+}
+
+function formatDateEndpoint(date, includeYear) {
+  const opts = { month: "short", day: "numeric" };
+  if (includeYear) opts.year = "numeric";
+  return date.toLocaleDateString("en-US", opts);
+}
+
+function formatCandlePeriod(startTs, periodMs, range) {
+  const start = toChartDate(startTs);
+  const end = new Date(startTs + periodMs);
+  const includeYear = LONG_DATE_RANGES.has(range) || periodMs > 365 * 24 * 60 * 60_000;
+
+  if (periodMs <= 24 * 60 * 60_000) {
+    const sameDay = start.toDateString() === end.toDateString();
+    if (sameDay) {
+      const dayLabel = TIME_AXIS_RANGES.has(range)
+        ? ""
+        : `${formatDateEndpoint(start, false)}, `;
+      return `${dayLabel}${formatTimeEndpoint(start, periodMs)} – ${formatTimeEndpoint(end, periodMs)}`;
+    }
+    return `${formatDateEndpoint(start, false)} ${formatTimeEndpoint(start, periodMs)} – ${formatDateEndpoint(end, false)} ${formatTimeEndpoint(end, periodMs)}`;
+  }
+
+  return `${formatDateEndpoint(start, includeYear)} – ${formatDateEndpoint(end, includeYear)}`;
 }
 
 // ─── Price formatting ─────────────────────────────────────────────────────────
@@ -314,16 +369,24 @@ function renderTooltipBody(point) {
   );
 }
 
-function CustomTooltip({ active, payload, range }) {
+function CustomTooltip({ active, payload, range, chartMode, chartType }) {
   if (!active || !payload?.length) return null;
   const point = payload[0]?.payload;
   if (!point) return null;
+
+  const isOhlc = point.close != null && point.open != null;
+  const periodMs = isOhlc ? getCandlePeriodMs(range, chartMode, chartType) : null;
 
   return (
     <div className="chart-tooltip">
       <p className="chart-tooltip__datetime">
         {formatTooltipDateTime(point.timestamp, range)}
       </p>
+      {periodMs != null && (
+        <p className="chart-tooltip__period">
+          {formatCandlePeriod(point.timestamp, periodMs, range)}
+        </p>
+      )}
       {renderTooltipBody(point)}
     </div>
   );
@@ -336,6 +399,8 @@ CustomTooltip.propTypes = {
       payload: PropTypes.object,
     }),
   ),
+  chartMode: PropTypes.string,
+  chartType: PropTypes.string,
   range: PropTypes.string.isRequired,
 };
 
@@ -403,7 +468,7 @@ function ChartCandleView({
           dataKey="close"
           shape={OhlcCandleShape}
           isAnimationActive={false}
-          maxBarSize={24}
+          maxBarSize={range === "1H" ? 8 : 24}
         />
       </ComposedChart>
     </ResponsiveContainer>
@@ -1235,7 +1300,13 @@ const CryptoDetails = () => {
 
   const sharedTooltip = (
     <Tooltip
-      content={<CustomTooltip range={range} />}
+      content={
+        <CustomTooltip
+          range={range}
+          chartMode={chartMode}
+          chartType={chartType}
+        />
+      }
       cursor={{ stroke: "var(--color-border-subtle)", strokeWidth: 1 }}
     />
   );
@@ -1277,6 +1348,7 @@ const CryptoDetails = () => {
       </header>
 
       <div className="terminal-main">
+        <div className="chart-column">
         <section className="chart-section" aria-label="Live price chart">
           {/* ── Timeframe + chart-mode controls ── */}
           <div className="chart-controls-bar">
@@ -1416,6 +1488,13 @@ const CryptoDetails = () => {
             periodStats={periodStats}
           />
         </section>
+
+        {range === "ALL" && (
+          <p className="all-time-disclaimer" role="note">
+            All-time data means price history since this asset started trading on the Kraken platform.
+          </p>
+        )}
+        </div>
 
         <OrderPanel
           bid={bid}

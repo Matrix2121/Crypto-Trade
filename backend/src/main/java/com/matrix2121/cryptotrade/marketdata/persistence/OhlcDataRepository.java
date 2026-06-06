@@ -23,8 +23,16 @@ public interface OhlcDataRepository extends JpaRepository<OhlcData, Long> {
     Optional<OhlcData> findFirstBySymbolAndIntervalStringOrderByTimestampDesc(
             String symbol, String intervalString);
 
+    Optional<OhlcData> findBySymbolAndIntervalStringAndTimestamp(
+            String symbol, String intervalString, Long timestamp);
+
     @Query("SELECT MAX(o.timestamp) FROM OhlcData o WHERE o.symbol = :symbol AND o.intervalString = :interval")
     Long findMaxTimestampBySymbolAndIntervalString(
+            @Param("symbol") String symbol,
+            @Param("interval") String interval);
+
+    @Query("SELECT MIN(o.timestamp) FROM OhlcData o WHERE o.symbol = :symbol AND o.intervalString = :interval")
+    Long findMinTimestampBySymbolAndIntervalString(
             @Param("symbol") String symbol,
             @Param("interval") String interval);
 }
