@@ -48,15 +48,6 @@
   }
 }
 
-/* Custom Scrollbar for the list */
-.transactions-list-section::-webkit-scrollbar {
-  width: 6px;
-}
-.transactions-list-section::-webkit-scrollbar-thumb {
-  background-color: var(--color-scrollbar-thumb);
-  border-radius: 4px;
-}
-
 /* List Styling */
 .transaction-list {
   list-style: none;

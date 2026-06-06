@@ -28,9 +28,15 @@ const LandingPage = () => {
       localStorage.setItem('jwt', data.jwt);
       localStorage.setItem('username', data.username);
       localStorage.setItem('isAdmin', String(Boolean(data.isAdmin)));
+      if (data.pictureUrl) {
+        localStorage.setItem('pictureUrl', data.pictureUrl);
+      } else {
+        localStorage.removeItem('pictureUrl');
+      }
       setUser({
         id: data.id,
         username: data.username,
+        pictureUrl: data.pictureUrl ?? null,
         balance: data.balance,
         isAdmin: Boolean(data.isAdmin),
       });

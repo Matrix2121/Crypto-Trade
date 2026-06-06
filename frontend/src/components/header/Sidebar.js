@@ -1,4 +1,4 @@
-import { useContext, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { AppContext } from "../../context/AppContext";
 import { formatBalanceUsd } from "../../utils/formatBalance";
@@ -50,8 +50,13 @@ const Sidebar = ({ mobileOpen = false, onMobileClose }) => {
   const { user, logout, balance } = useContext(AppContext);
   const { sidebarCryptos } = useFavorites();
   const [isExpanded, setIsExpanded] = useState(true);
+  const [avatarError, setAvatarError] = useState(false);
 
   useBalance();
+
+  useEffect(() => {
+    setAvatarError(false);
+  }, [user?.pictureUrl]);
 
   const activeCryptoCode = useMemo(() => {
     const match = location.pathname.match(/^\/market\/([^/]+)/i);
@@ -76,7 +81,7 @@ const Sidebar = ({ mobileOpen = false, onMobileClose }) => {
     >
       <div className="sidebar-top">
         <div className="sidebar-header">
-          <div className="sidebar-brand">{showLabels ? "CryptoTrade" : ""}</div>
+          <div className="sidebar-brand">{showLabels ? "Noq Trade" : ""}</div>
           <button
             type="button"
             className="sidebar-toggle"
@@ -156,8 +161,23 @@ const Sidebar = ({ mobileOpen = false, onMobileClose }) => {
 
       <div className="sidebar-bottom">
         <div className="sidebar-profile">
-          <div className="sidebar-profile-row">
-            <span className="sidebar-profile-username">Hello, {user?.username ?? "—"}</span>
+          <div className="sidebar-profile-row sidebar-profile-user">
+            {user?.pictureUrl && !avatarError ? (
+              <img
+                className="sidebar-profile-avatar"
+                src={user.pictureUrl}
+                alt=""
+                width={32}
+                height={32}
+                referrerPolicy="no-referrer"
+                onError={() => setAvatarError(true)}
+              />
+            ) : (
+              <span className="sidebar-profile-avatar sidebar-profile-avatar-fallback" aria-hidden="true">
+                {(user?.username?.[0] ?? "?").toUpperCase()}
+              </span>
+            )}
+            <span className="sidebar-profile-username">{user?.username ?? "—"}</span>
           </div>
 
           <div className="sidebar-profile-row">
