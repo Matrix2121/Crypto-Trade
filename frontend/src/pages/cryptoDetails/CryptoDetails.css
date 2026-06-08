@@ -4,7 +4,7 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 .app-routes:has(.crypto-details-page) {
@@ -12,7 +12,7 @@
   flex: 1;
   flex-direction: column;
   min-height: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .crypto-details-container {
@@ -24,8 +24,8 @@
   max-width: 1600px;
   width: 100%;
   margin: 0 auto;
-  min-height: 0;
-  overflow: hidden;
+  min-height: min-content;
+  overflow: visible;
   color: var(--color-text-primary);
   background: var(--color-bg-base);
   box-sizing: border-box;
@@ -122,10 +122,10 @@
   display: grid;
   grid-template-columns: 1fr 320px;
   gap: 0.75rem;
-  align-items: stretch;
+  align-items: start;
   flex: 1;
   min-height: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .chart-column {
@@ -133,6 +133,7 @@
   flex-direction: column;
   min-width: 0;
   min-height: 0;
+  gap: 0.5rem;
 }
 
 .chart-section {
@@ -141,8 +142,7 @@
   gap: 0.5rem;
   min-width: 0;
   min-height: 0;
-  height: 85%;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .order-section {
@@ -192,8 +192,9 @@
 
 .crypto-chart-wrapper {
   position: relative;
-  flex: 1 1 0;
-  min-height: 0;
+  flex: 0 0 auto;
+  height: 360px;
+  min-height: 280px;
   background: var(--color-bg-page);
   border: 1px solid var(--color-border-default);
   border-radius: 4px;
@@ -216,7 +217,6 @@
   color: var(--color-sell-text);
 }
 
-.revalidating-spinner,
 .chart-loading-badge {
   position: absolute;
   top: 0.625rem;
@@ -362,6 +362,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+  flex: 1;
   min-width: 0;
 }
 
@@ -372,6 +373,33 @@
   flex-wrap: wrap;
 }
 
+.timeframe-selector-row--aggregated {
+  flex-wrap: nowrap;
+  width: 100%;
+  min-width: 0;
+}
+
+.timeframe-selector-aggregated-group {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.timeframe-selector--aggregated {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+.timeframe-selector--aggregated .timeframe-btn {
+  flex-shrink: 0;
+}
+
 .timeframe-selector-label {
   flex-shrink: 0;
   width: 5.75rem;
@@ -379,6 +407,10 @@
   font-weight: 700;
   color: var(--color-text-muted);
   letter-spacing: 0.02em;
+}
+
+.timeframe-selector-label--live {
+  color: var(--color-sell-text);
 }
 
 .timeframe-selector {
@@ -1061,10 +1093,7 @@
 @media (max-width: 960px) {
   .terminal-main {
     grid-template-columns: 1fr;
-  }
-
-  .terminal-main {
-    overflow: hidden;
+    overflow: visible;
   }
 
   .order-section {
@@ -1126,9 +1155,20 @@
 
 .chart-mode-controls {
   display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.35rem;
+  flex-shrink: 0;
+  align-self: stretch;
+}
+
+.chart-mode-toolbar {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
+  gap: 0.375rem;
 }
 
 .chart-mode-group {
@@ -1193,7 +1233,22 @@
   cursor: not-allowed;
 }
 
-/* ── AI Predict button ──────────────────────────────────────── */
+/* ── AI Predict controls (toolbar + secondary row) ──────────── */
+
+.chart-predict-secondary-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.375rem;
+  flex-shrink: 0;
+  min-height: 1.625rem;
+}
+
+.chart-predict-secondary-placeholder {
+  display: block;
+  min-height: 1.625rem;
+  min-width: 1px;
+}
 
 .btn-ai-predict {
   appearance: none;
@@ -1205,24 +1260,78 @@
   font-size: 0.6875rem;
   font-weight: 700;
   letter-spacing: 0.04em;
-  cursor: not-allowed;
-  opacity: 0.55;
+  cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 0.375rem;
   white-space: nowrap;
+  transition: border-color 0.15s, color 0.15s;
 }
 
-.ai-badge {
-  font-size: 0.5625rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  background: color-mix(in srgb, var(--color-accent-blue) 25%, transparent);
+.btn-ai-predict:hover:not(:disabled) {
+  border-color: var(--color-accent-blue);
   color: var(--color-accent-blue);
-  padding: 0.0625rem 0.3125rem;
+}
+
+.btn-ai-predict.active {
+  border-color: var(--color-accent-blue);
+  color: var(--color-accent-blue);
+  background: color-mix(in srgb, var(--color-accent-blue) 12%, transparent);
+}
+
+.btn-ai-predict:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.btn-predict-history {
+  appearance: none;
+  background: transparent;
+  border: 1px solid var(--color-border-default);
+  color: var(--color-text-muted);
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s, color 0.15s, background-color 0.15s;
+}
+
+.btn-predict-history:hover:not(:disabled) {
+  border-color: #38bdf8;
+  color: #38bdf8;
+}
+
+.btn-predict-history.active {
+  border-color: #38bdf8;
+  color: #38bdf8;
+  background: color-mix(in srgb, #38bdf8 10%, transparent);
+}
+
+.btn-predict-history:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.prediction-chart-filter {
+  margin: 0;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: var(--color-accent-blue);
+  background: color-mix(in srgb, var(--color-accent-blue) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent-blue) 25%, transparent);
   border-radius: 3px;
-  border: 1px solid color-mix(in srgb, var(--color-accent-blue) 40%, transparent);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.prediction-chart-filter--muted {
+  color: var(--color-text-muted);
+  background: var(--color-bg-panel);
+  border-color: var(--color-border-default);
 }
 
 /* ── Spread tooltip ─────────────────────────────────────────── */
@@ -1243,4 +1352,16 @@
 
 .chart-tooltip__spread .spread-bid {
   color: var(--color-sell-text, #ef4444);
+}
+
+.chart-tooltip__forecast {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+.forecast-ci-dots circle {
+  pointer-events: none;
 }

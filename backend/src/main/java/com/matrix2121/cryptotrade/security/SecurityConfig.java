@@ -35,6 +35,7 @@ public class SecurityConfig {
                                 "/api/prices",
                                 "/api/history/**",
                                 "/api/market-stats/**",
+                                "/api/predictions/**",
                                 "/ws/**")
                         .permitAll()
                         .anyRequest().authenticated())

@@ -5,6 +5,7 @@ import Market from "./pages/market/Market";
 import CryptoDetails from "./pages/cryptoDetails/CryptoDetails";
 import Portfolio from "./pages/portfolio/Portfolio";
 import Transactions from "./pages/transactions/Transactions";
+import Backtesting from "./pages/backtesting/Backtesting";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import { AuthedLayout, MarketLayout } from "./App";
 
@@ -27,6 +28,7 @@ export const router = createBrowserRouter(
         },
         { path: "portfolio", element: <Portfolio /> },
         { path: "transactions", element: <Transactions /> },
+        { path: "backtesting", element: <Backtesting /> },
         { path: "admin", element: <AdminDashboard /> },
       ],
     },

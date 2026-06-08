@@ -1,4 +1,5 @@
 import {
+  Fragment,
   useCallback,
   useContext,
   useEffect,
@@ -17,6 +18,7 @@ import {
   XAxis,
   YAxis,
   Tooltip,
+  Customized,
 } from "recharts";
 import useAssets from "../../hooks/useAssets";
 import useBuy from "../../hooks/useBuy";
@@ -32,50 +34,46 @@ import {
   formatCryptoAmount,
 } from "../../utils/formatBalance";
 import {
+  AGGREGATED_CHART_RANGE_OPTIONS,
+  CHART_BUCKET_MS,
+  LIVE_CANDLE_PERIOD_MS,
+  LIVE_CHART_RANGE_OPTIONS,
+  TICK_CANDLE_WINDOW_MS,
+} from "../../constants/chartConfig";
+import { PREDICTION_ASSET_SET } from "../../constants/predictionAssets";
+import {
   getBaseAsset,
   getCryptoIconPath,
   handleCryptoIconError,
 } from "../../utils/getCryptoIconPath";
 import { useFavorites } from "../../context/FavoritesContext";
+import usePredictions from "../../hooks/usePredictions";
+import PredictionPanel from "../../components/PredictionPanel";
+import {
+  applyForecastOverlay,
+  buildHistoricalPredictionOverlay,
+  buildPredictionChartOverlay,
+  collectForecastPrices,
+  getPredictionFilterLabel,
+  HISTORY_FETCH_LIMIT,
+  HISTORICAL_CI_KEYS,
+  isPredictionChartRange,
+  mergePredictionOverlays,
+  msUntilNextHourlyPredictionRefresh,
+  isPredictionEndpoint,
+  isPredictionTargetEndpoint,
+  FORECAST_CI_KEYS,
+  PREDICTION_LINE_KEYS,
+} from "../../utils/chartPredictions";
 import "./CryptoDetails.css";
 
 // ─── Axis / tooltip formatting ────────────────────────────────────────────────
 
 const TIME_AXIS_RANGES = new Set(["1Min", "5Min", "15Min", "1H", "1D"]);
-const LONG_DATE_RANGES = new Set(["1Y", "5Y", "ALL"]);
+const LONG_DATE_RANGES = new Set(["1Y", "ALL"]);
 const SECONDS_RANGES = new Set(["1Min", "5Min", "15Min"]);
 
-const LIVE_CANDLE_PERIOD_MS = 15_000;
-
-const CANDLE_PERIOD_MS = {
-  "1Min": LIVE_CANDLE_PERIOD_MS,
-  "5Min": LIVE_CANDLE_PERIOD_MS,
-  "15Min": LIVE_CANDLE_PERIOD_MS,
-  "1H": 60_000,
-  "1D": 30 * 60_000,
-  "1W": 2 * 60 * 60_000,
-  "1M": 8 * 60 * 60_000,
-  "3M": 24 * 60 * 60_000,
-  "1Y": 5 * 24 * 60 * 60_000,
-  "5Y": 30 * 24 * 60 * 60_000,
-  "ALL": 30 * 24 * 60 * 60_000,
-};
-
-const LIVE_CHART_RANGES = [
-  { value: "1Min", label: "1 min" },
-  { value: "5Min", label: "5 min" },
-  { value: "15Min", label: "15 min" },
-];
-
-const AGGREGATED_CHART_RANGES = [
-  { value: "1H", label: "1H" },
-  { value: "1D", label: "1D" },
-  { value: "1W", label: "1W" },
-  { value: "1M", label: "1M" },
-  { value: "3M", label: "3M" },
-  { value: "1Y", label: "1Y" },
-  { value: "ALL", label: "All" },
-];
+const CANDLE_PERIOD_MS = CHART_BUCKET_MS;
 
 function toTimestampMs(ts) {
   const n = Number(ts);
@@ -153,7 +151,8 @@ function formatDateEndpoint(date, includeYear) {
 function formatCandlePeriod(startTs, periodMs, range) {
   const start = toChartDate(startTs);
   const end = new Date(startTs + periodMs);
-  const includeYear = LONG_DATE_RANGES.has(range) || periodMs > 365 * 24 * 60 * 60_000;
+  const includeYear =
+    LONG_DATE_RANGES.has(range) || periodMs > 365 * 24 * 60 * 60_000;
 
   if (periodMs <= 24 * 60 * 60_000) {
     const sameDay = start.toDateString() === end.toDateString();
@@ -251,7 +250,6 @@ function aggregateTicksToOhlc(ticks, windowMs) {
   return Object.values(windows).sort((a, b) => a.timestamp - b.timestamp);
 }
 
-const TICK_CANDLE_WINDOW_MS = 60_000;
 
 // ─── Candlestick custom shape ─────────────────────────────────────────────────
 
@@ -342,7 +340,7 @@ StatCard.propTypes = {
   valueClassName: PropTypes.string,
 };
 
-function renderTooltipBody(point) {
+function renderMarketTooltipBody(point) {
   const isOhlc = point.close != null && point.open != null;
   if (isOhlc) {
     return (
@@ -362,20 +360,143 @@ function renderTooltipBody(point) {
       </div>
     );
   }
+  if (point.price != null) {
+    return (
+      <p className="chart-tooltip__price">
+        Price: {formatChartPrice(point.price)}
+      </p>
+    );
+  }
+  return null;
+}
+
+function renderForecastCiTooltipRow(key, label, point, ciKeys) {
+  const low = point[ciKeys.low];
+  const high = point[ciKeys.high];
+  if (typeof low !== "number" || typeof high !== "number") return null;
+
   return (
-    <p className="chart-tooltip__price">
-      Price: {formatChartPrice(point.price)}
-    </p>
+    <span key={key}>
+      {label}: {formatChartPrice(low)} – {formatChartPrice(high)}
+    </span>
   );
 }
 
-function CustomTooltip({ active, payload, range, chartMode, chartType }) {
+function renderForecastTooltipBody(point) {
+  const { FUTURE, HOURLY, DAILY, CONTEXT_AWARE } = PREDICTION_LINE_KEYS;
+  const rows = [];
+
+  const ciRows = [
+    ["future-target", "Model hourly CI", FORECAST_CI_KEYS[FUTURE]],
+    ["hist-future", "Past model hourly CI", HISTORICAL_CI_KEYS[FUTURE]],
+    ["hourly", "Model hourly CI", FORECAST_CI_KEYS[HOURLY]],
+    ["hist-hourly", "Past model hourly CI", HISTORICAL_CI_KEYS[HOURLY]],
+    ["daily", "Model daily CI", FORECAST_CI_KEYS[DAILY]],
+    ["hist-daily", "Past model daily CI", HISTORICAL_CI_KEYS[DAILY]],
+    ["context-aware", "Context-aware CI", FORECAST_CI_KEYS[CONTEXT_AWARE]],
+    ["hist-context-aware", "Past context-aware CI", HISTORICAL_CI_KEYS[CONTEXT_AWARE]],
+  ];
+
+  for (const [key, label, ciKeys] of ciRows) {
+    const row = renderForecastCiTooltipRow(key, label, point, ciKeys);
+    if (row) rows.push(row);
+  }
+
+  if (!rows.length) return null;
+  return <div className="chart-tooltip__forecast">{rows}</div>;
+}
+
+function renderTooltipBody(point) {
+  if (point.isFutureSlot) {
+    return (
+      <p className="chart-tooltip__period">
+        Forecast window (no price data yet)
+      </p>
+    );
+  }
+
+  const market = renderMarketTooltipBody(point);
+  const forecast = renderForecastTooltipBody(point);
+
+  if (market || forecast) {
+    return (
+      <>
+        {market}
+        {forecast}
+      </>
+    );
+  }
+
+  return null;
+}
+
+function resolveTooltipPoint(payload) {
+  if (!payload?.length) return null;
+
+  let point = {};
+  for (const entry of payload) {
+    if (entry?.payload) {
+      point = { ...point, ...entry.payload };
+    }
+  }
+
+  return point.timestamp != null ? point : null;
+}
+
+function findMarketDataAt(chartData, timestamp) {
+  const exact = chartData.find((p) => p.timestamp === timestamp);
+  if (exact) return exact;
+
+  let nearest = null;
+  for (const row of chartData) {
+    if (row.timestamp > timestamp) break;
+    if (row.close != null || row.price != null) nearest = row;
+  }
+  return nearest;
+}
+
+function enrichPointWithMarketData(point, chartData) {
+  if (!point || !chartData?.length) return point;
+
+  const hasOhlc = point.close != null && point.open != null;
+  const hasPrice = point.price != null;
+  const hasSpread = point.bid != null && point.ask != null;
+  if (hasOhlc || hasPrice || hasSpread) return point;
+
+  const row = findMarketDataAt(chartData, point.timestamp);
+  if (!row) return point;
+
+  return {
+    ...point,
+    open: point.open ?? row.open,
+    high: point.high ?? row.high,
+    low: point.low ?? row.low,
+    close: point.close ?? row.close,
+    price: point.price ?? row.price,
+    bid: point.bid ?? row.bid,
+    ask: point.ask ?? row.ask,
+  };
+}
+
+function CustomTooltip({
+  active,
+  payload,
+  chartData,
+  range,
+  chartMode,
+  chartType,
+}) {
   if (!active || !payload?.length) return null;
-  const point = payload[0]?.payload;
+  const point = enrichPointWithMarketData(
+    resolveTooltipPoint(payload),
+    chartData,
+  );
   if (!point) return null;
 
   const isOhlc = point.close != null && point.open != null;
-  const periodMs = isOhlc ? getCandlePeriodMs(range, chartMode, chartType) : null;
+  const periodMs = isOhlc
+    ? getCandlePeriodMs(range, chartMode, chartType)
+    : null;
 
   return (
     <div className="chart-tooltip">
@@ -394,11 +515,8 @@ function CustomTooltip({ active, payload, range, chartMode, chartType }) {
 
 CustomTooltip.propTypes = {
   active: PropTypes.bool,
-  payload: PropTypes.arrayOf(
-    PropTypes.shape({
-      payload: PropTypes.object,
-    }),
-  ),
+  payload: PropTypes.arrayOf(PropTypes.object),
+  chartData: PropTypes.arrayOf(PropTypes.object),
   chartMode: PropTypes.string,
   chartType: PropTypes.string,
   range: PropTypes.string.isRequired,
@@ -445,6 +563,264 @@ function computePeriodStats(displayData, isDisplayOhlc) {
   return { periodHigh, periodLow, absoluteChange, percentChange };
 }
 
+function buildBandPolygon(bandPoints, ciLowKey, ciHighKey, xAxis, yAxis, offset) {
+  const validPoints = (bandPoints || []).filter(
+    (point) =>
+      typeof point[ciLowKey] === "number" && typeof point[ciHighKey] === "number",
+  );
+  if (validPoints.length < 2) return null;
+
+  const left = offset?.left ?? 0;
+  const top = offset?.top ?? 0;
+  const toCoord = (timestamp, price) => {
+    const x = xAxis.scale(timestamp) + left;
+    const y = yAxis.scale(price) + top;
+    return `${x},${y}`;
+  };
+
+  const upper = validPoints.map((point) =>
+    toCoord(point.timestamp, point[ciHighKey]),
+  );
+  const lower = [...validPoints]
+    .reverse()
+    .map((point) => toCoord(point.timestamp, point[ciLowKey]));
+
+  return [...upper, ...lower].join(" ");
+}
+
+function ForecastCiBandFill({
+  lineConfigs,
+  chartData,
+  xAxisMap,
+  yAxisMap,
+  offset,
+}) {
+  const xAxis = xAxisMap?.[Object.keys(xAxisMap ?? {})[0]];
+  const yAxis = yAxisMap?.[Object.keys(yAxisMap ?? {})[0]];
+  if (!xAxis?.scale || !yAxis?.scale || !lineConfigs?.length || !chartData?.length) {
+    return null;
+  }
+
+  const fills = [];
+  for (const cfg of lineConfigs) {
+    if (cfg.type !== "band") continue;
+
+    const { ciLowKey, ciHighKey, stroke, fillOpacity = 0.2, bandSegments } = cfg;
+    const segmentGroups = bandSegments?.length
+      ? bandSegments
+      : [
+          (chartData || []).filter(
+            (point) =>
+              typeof point[ciLowKey] === "number"
+              && typeof point[ciHighKey] === "number",
+          ),
+        ];
+
+    segmentGroups.forEach((segmentPoints, index) => {
+      const points = buildBandPolygon(
+        segmentPoints,
+        ciLowKey,
+        ciHighKey,
+        xAxis,
+        yAxis,
+        offset,
+      );
+      if (!points) return;
+
+      fills.push(
+        <polygon
+          key={`fill-${ciLowKey}-${ciHighKey}-${index}`}
+          points={points}
+          fill={stroke}
+          fillOpacity={fillOpacity}
+          stroke="none"
+        />,
+      );
+    });
+  }
+
+  if (!fills.length) return null;
+  return <g className="forecast-ci-bands">{fills}</g>;
+}
+
+ForecastCiBandFill.propTypes = {
+  lineConfigs: PropTypes.array,
+  chartData: PropTypes.arrayOf(PropTypes.object),
+  xAxisMap: PropTypes.object,
+  yAxisMap: PropTypes.object,
+  offset: PropTypes.shape({
+    left: PropTypes.number,
+    top: PropTypes.number,
+  }),
+};
+
+function PredictionForecastBands({ lineConfigs }) {
+  if (!lineConfigs?.length) return null;
+
+  return lineConfigs.map((cfg) => {
+    if (cfg.type !== "band") return null;
+
+    const {
+      ciLowKey,
+      ciHighKey,
+      stroke,
+      strokeWidth = 1.5,
+      strokeDasharray,
+      strokeOpacity = 1,
+      connectNulls = true,
+    } = cfg;
+    const bandKey = `band-${ciLowKey}-${ciHighKey}`;
+    const hoverDot = {
+      r: 3.5,
+      fill: stroke,
+      stroke: "var(--color-bg-page, #fff)",
+      strokeWidth: 1.5,
+    };
+
+    return (
+      <Fragment key={bandKey}>
+        <Line
+          type="linear"
+          dataKey={ciLowKey}
+          name={`${cfg.name} (low)`}
+          stroke={stroke}
+          strokeWidth={strokeWidth}
+          strokeOpacity={strokeOpacity}
+          strokeDasharray={strokeDasharray ?? undefined}
+          dot={false}
+          activeDot={hoverDot}
+          isAnimationActive={false}
+          connectNulls={connectNulls}
+          legendType="none"
+        />
+        <Line
+          type="linear"
+          dataKey={ciHighKey}
+          name={`${cfg.name} (high)`}
+          stroke={stroke}
+          strokeWidth={strokeWidth}
+          strokeOpacity={strokeOpacity}
+          strokeDasharray={strokeDasharray ?? undefined}
+          dot={false}
+          activeDot={hoverDot}
+          isAnimationActive={false}
+          connectNulls={connectNulls}
+          legendType="none"
+        />
+      </Fragment>
+    );
+  });
+}
+
+PredictionForecastBands.propTypes = {
+  lineConfigs: PropTypes.arrayOf(
+    PropTypes.shape({
+      type: PropTypes.string,
+      ciLowKey: PropTypes.string,
+      ciHighKey: PropTypes.string,
+      name: PropTypes.string,
+      stroke: PropTypes.string,
+      fillOpacity: PropTypes.number,
+      strokeWidth: PropTypes.number,
+      strokeDasharray: PropTypes.string,
+      strokeOpacity: PropTypes.number,
+    }),
+  ),
+};
+
+function PredictionForecastDots({
+  lineConfigs,
+  chartData,
+  xAxisMap,
+  yAxisMap,
+  offset,
+}) {
+  const xAxis = xAxisMap?.[Object.keys(xAxisMap ?? {})[0]];
+  const yAxis = yAxisMap?.[Object.keys(yAxisMap ?? {})[0]];
+  if (
+    !xAxis?.scale
+    || !yAxis?.scale
+    || !lineConfigs?.length
+    || !chartData?.length
+  ) {
+    return null;
+  }
+
+  const left = offset?.left ?? 0;
+  const top = offset?.top ?? 0;
+  const dots = [];
+
+  for (const cfg of lineConfigs) {
+    if (cfg.type !== "band") continue;
+
+    const { ciLowKey, ciHighKey, stroke } = cfg;
+
+    for (const point of chartData) {
+      if (!isPredictionEndpoint(point)) continue;
+
+      const low = point[ciLowKey];
+      const high = point[ciHighKey];
+      if (typeof low !== "number" || typeof high !== "number") continue;
+
+      const x = xAxis.scale(point.timestamp) + left;
+      const yLow = yAxis.scale(low) + top;
+      const yHigh = yAxis.scale(high) + top;
+      const isTarget = isPredictionTargetEndpoint(point);
+      const radius = isTarget ? 4.5 : 3.5;
+      const keyBase = `${ciLowKey}-${point.timestamp}`;
+
+      if (Math.abs(yLow - yHigh) < 0.5) {
+        dots.push(
+          <circle
+            key={`${keyBase}-mid`}
+            cx={x}
+            cy={yLow}
+            r={radius}
+            fill={stroke}
+            stroke="var(--color-bg-page, #fff)"
+            strokeWidth={1.5}
+          />,
+        );
+      } else {
+        dots.push(
+          <circle
+            key={`${keyBase}-lo`}
+            cx={x}
+            cy={yLow}
+            r={radius}
+            fill={stroke}
+            stroke="var(--color-bg-page, #fff)"
+            strokeWidth={1.5}
+          />,
+          <circle
+            key={`${keyBase}-hi`}
+            cx={x}
+            cy={yHigh}
+            r={radius}
+            fill={stroke}
+            stroke="var(--color-bg-page, #fff)"
+            strokeWidth={1.5}
+          />,
+        );
+      }
+    }
+  }
+
+  if (!dots.length) return null;
+  return <g className="forecast-ci-dots">{dots}</g>;
+}
+
+PredictionForecastDots.propTypes = {
+  lineConfigs: PropTypes.array,
+  chartData: PropTypes.arrayOf(PropTypes.object),
+  xAxisMap: PropTypes.object,
+  yAxisMap: PropTypes.object,
+  offset: PropTypes.shape({
+    left: PropTypes.number,
+    top: PropTypes.number,
+  }),
+};
+
 function ChartCandleView({
   displayData,
   range,
@@ -453,22 +829,41 @@ function ChartCandleView({
   sharedXAxis,
   sharedYAxis,
   sharedTooltip,
+  predictionLineConfigs,
 }) {
   return (
     <ResponsiveContainer width="100%" height="100%">
       <ComposedChart
-        key={`candle-${range}`}
         data={displayData}
         margin={{ top: 12, right: 12, left: 0, bottom: 4 }}
       >
         {sharedXAxis}
         {sharedYAxis(candleYBounds)}
         {sharedTooltip}
+        <Customized
+          component={(props) => (
+            <ForecastCiBandFill
+              {...props}
+              lineConfigs={predictionLineConfigs}
+              chartData={displayData}
+            />
+          )}
+        />
         <Bar
           dataKey="close"
           shape={OhlcCandleShape}
           isAnimationActive={false}
           maxBarSize={range === "1H" ? 8 : 24}
+        />
+        <PredictionForecastBands lineConfigs={predictionLineConfigs} />
+        <Customized
+          component={(props) => (
+            <PredictionForecastDots
+              {...props}
+              lineConfigs={predictionLineConfigs}
+              chartData={displayData}
+            />
+          )}
         />
       </ComposedChart>
     </ResponsiveContainer>
@@ -483,6 +878,7 @@ ChartCandleView.propTypes = {
   sharedXAxis: PropTypes.element.isRequired,
   sharedYAxis: PropTypes.func.isRequired,
   sharedTooltip: PropTypes.element.isRequired,
+  predictionLineConfigs: PropTypes.array,
 };
 
 function ChartLineView({
@@ -494,18 +890,27 @@ function ChartLineView({
   sharedXAxis,
   sharedYAxis,
   sharedTooltip,
+  predictionLineConfigs,
 }) {
   const showSpread = lineMode === "spread" && hasSpreadData;
   return (
     <ResponsiveContainer width="100%" height="100%">
       <ComposedChart
-        key={`line-${range}`}
         data={displayData}
         margin={{ top: 12, right: 12, left: 0, bottom: 4 }}
       >
         {sharedXAxis}
         {sharedYAxis(null)}
         {sharedTooltip}
+        <Customized
+          component={(props) => (
+            <ForecastCiBandFill
+              {...props}
+              lineConfigs={predictionLineConfigs}
+              chartData={displayData}
+            />
+          )}
+        />
         {showSpread ? (
           <>
             <Line
@@ -543,6 +948,16 @@ function ChartLineView({
             activeDot={{ r: 3, fill: "var(--color-accent-blue)" }}
           />
         )}
+        <PredictionForecastBands lineConfigs={predictionLineConfigs} />
+        <Customized
+          component={(props) => (
+            <PredictionForecastDots
+              {...props}
+              lineConfigs={predictionLineConfigs}
+              chartData={displayData}
+            />
+          )}
+        />
       </ComposedChart>
     </ResponsiveContainer>
   );
@@ -557,9 +972,16 @@ ChartLineView.propTypes = {
   sharedXAxis: PropTypes.element.isRequired,
   sharedYAxis: PropTypes.func.isRequired,
   sharedTooltip: PropTypes.element.isRequired,
+  predictionLineConfigs: PropTypes.array,
 };
 
-function StatsDashboard({ isLoadingStats, stats, periodStats }) {
+function StatsDashboard({
+  isLoadingStats,
+  stats,
+  periodStats,
+  avgEntryPrice,
+  currentPrice,
+}) {
   return (
     <div
       className="unified-stats-container"
@@ -609,6 +1031,17 @@ function StatsDashboard({ isLoadingStats, stats, periodStats }) {
               : formatAthDate(stats.athDate)
           }
         />
+        {avgEntryPrice != null && (
+          <StatCard
+            label="Your Avg Entry"
+            value={formatChartPrice(avgEntryPrice)}
+            subValue={
+              currentPrice != null
+                ? `${((currentPrice / avgEntryPrice - 1) * 100).toFixed(2)}% vs current`
+                : undefined
+            }
+          />
+        )}
       </div>
     </div>
   );
@@ -1175,7 +1608,7 @@ function renderChartStatus(displayData, isLoading, chartType) {
 const CryptoDetails = () => {
   const { cryptoCode = "" } = useParams();
   const navigate = useNavigate();
-  const { assets, balance } = useContext(AppContext);
+  const { assets, balance, transactions } = useContext(AppContext);
   const { isFavorite, toggleFavorite, registerOpened, unregisterOpened } =
     useFavorites();
 
@@ -1186,6 +1619,8 @@ const CryptoDetails = () => {
 
   const [chartMode, setChartMode] = useState("line"); // 'line' | 'candle'
   const [lineMode, setLineMode] = useState("mid"); // 'mid'  | 'spread'
+  const [showPredictions, setShowPredictions] = useState(false);
+  const [showHistoricalPredictions, setShowHistoricalPredictions] = useState(false);
 
   const symbol = String(cryptoCode).replace("-", "/").toUpperCase();
   const baseAsset = getBaseAsset(symbol).toUpperCase();
@@ -1210,6 +1645,71 @@ const CryptoDetails = () => {
     chartMode,
   );
   const { stats, isLoadingStats } = useCoinStats(symbol);
+  const {
+    prediction,
+    history: predictionHistory,
+    loading: predictionLoading,
+    error: predictionError,
+    loadPredictions,
+  } = usePredictions();
+
+  const canPredict = PREDICTION_ASSET_SET.has(symbol);
+
+  useEffect(() => {
+    setShowPredictions(false);
+    setShowHistoricalPredictions(false);
+  }, [symbol]);
+
+  const predictionPath = symbol.replace("/", "-");
+
+  useEffect(() => {
+    if (!showPredictions || !canPredict) return undefined;
+
+    let timeoutId;
+    const scheduleRefresh = () => {
+      timeoutId = setTimeout(async () => {
+        const limit = HISTORY_FETCH_LIMIT[range] ?? 50;
+        await loadPredictions(predictionPath, limit);
+        scheduleRefresh();
+      }, msUntilNextHourlyPredictionRefresh());
+    };
+
+    scheduleRefresh();
+    return () => clearTimeout(timeoutId);
+  }, [showPredictions, canPredict, predictionPath, range, loadPredictions]);
+
+  useEffect(() => {
+    if (!showPredictions || !canPredict) return;
+    const limit = HISTORY_FETCH_LIMIT[range] ?? 50;
+    loadPredictions(predictionPath, limit);
+  }, [showPredictions, canPredict, range, predictionPath, loadPredictions]);
+
+  useEffect(() => {
+    if (!showPredictions || !showHistoricalPredictions || !canPredict) return;
+    const limit = HISTORY_FETCH_LIMIT[range] ?? 50;
+    loadPredictions(predictionPath, limit);
+  }, [
+    showPredictions,
+    showHistoricalPredictions,
+    canPredict,
+    range,
+    predictionPath,
+    loadPredictions,
+  ]);
+
+  const handlePredictToggle = async () => {
+    if (showPredictions) {
+      setShowPredictions(false);
+      return;
+    }
+    const limit = HISTORY_FETCH_LIMIT[range] ?? 50;
+    try {
+      await loadPredictions(predictionPath, limit);
+    } catch {
+      // Panel shows error when visible
+    }
+    setShowPredictions(true);
+  };
 
   // ── Derived display data ────────────────────────────────────────────────────
 
@@ -1219,23 +1719,64 @@ const CryptoDetails = () => {
     return aggregateTicksToOhlc(chartData, TICK_CANDLE_WINDOW_MS);
   }, [chartMode, chartType, chartData]);
 
-  const isDisplayOhlc = chartMode === "candle" || chartType === "OHLC";
+  const predictionChartOverlay = useMemo(() => {
+    if (!showPredictions || !canPredict) {
+      return { points: [], lineConfigs: [], predictionWindowEnd: null };
+    }
 
-  // Y-axis bounds for the candle chart (with 4% padding each side).
-  const candleYBounds = useMemo(() => {
-    if (chartMode !== "candle" || displayData.length === 0) return null;
-    const first = displayData[0];
-    if (first.high == null) return null;
-    const minLow = Math.min(...displayData.map((d) => d.low));
-    const maxHigh = Math.max(...displayData.map((d) => d.high));
-    const pad = (maxHigh - minLow) * 0.04;
-    return [minLow - pad, maxHigh + pad];
-  }, [chartMode, displayData]);
+    const forwardOverlay = buildPredictionChartOverlay(
+      displayData,
+      prediction,
+      true,
+      range,
+      chartMode,
+      chartType,
+    );
 
-  const OhlcCandleShape = useCallback(
-    (props) => renderCandleShape(props, candleYBounds),
-    [candleYBounds],
+    const historicalOverlay = showHistoricalPredictions
+      ? buildHistoricalPredictionOverlay(displayData, predictionHistory, range)
+      : { points: [], lineConfigs: [], predictionWindowEnd: null };
+
+    return mergePredictionOverlays(historicalOverlay, forwardOverlay);
+  }, [
+    displayData,
+    prediction,
+    predictionHistory,
+    showPredictions,
+    showHistoricalPredictions,
+    canPredict,
+    range,
+    chartMode,
+    chartType,
+  ]);
+
+  const chartRenderData = useMemo(
+    () => applyForecastOverlay(displayData, predictionChartOverlay),
+    [displayData, predictionChartOverlay],
   );
+  const predictionLineConfigs = predictionChartOverlay.lineConfigs;
+  const predictionWindowEnd = predictionChartOverlay.predictionWindowEnd;
+
+  const predictionFilterLabel = useMemo(
+    () =>
+      getPredictionFilterLabel(
+        showPredictions && canPredict,
+        range,
+        prediction,
+        predictionLineConfigs.length > 0,
+        predictionWindowEnd,
+      ),
+    [
+      showPredictions,
+      canPredict,
+      range,
+      prediction,
+      predictionLineConfigs.length,
+      predictionWindowEnd,
+    ],
+  );
+
+  const isDisplayOhlc = chartMode === "candle" || chartType === "OHLC";
 
   // ── Period stats ────────────────────────────────────────────────────────────
 
@@ -1259,6 +1800,51 @@ const CryptoDetails = () => {
   const hasSpreadData =
     chartType === "TICK" &&
     displayData.some((d) => d.bid != null && d.ask != null);
+
+  const avgEntryPrice = useMemo(() => {
+    let qty = 0;
+    let cost = 0;
+    const sorted = [...transactions]
+      .filter((t) => t.cryptoCode === symbol)
+      .sort((a, b) => new Date(a.tradeTimestamp) - new Date(b.tradeTimestamp));
+    for (const tx of sorted) {
+      const amount = Number(tx.cryptoAmount);
+      const usd = Number(tx.localCurrencyAmount);
+      if (Number.isNaN(amount) || Number.isNaN(usd)) continue;
+      if (tx.isPurchase) {
+        qty += amount;
+        cost += usd;
+      } else if (qty > 0) {
+        const avg = cost / qty;
+        cost -= avg * amount;
+        qty = Math.max(0, qty - amount);
+      }
+    }
+    return qty > 0 ? cost / qty : null;
+  }, [transactions, symbol]);
+
+  const currentMidPrice =
+    bid != null && ask != null ? (bid + ask) / 2 : (bid ?? ask);
+
+  // Y-axis bounds for the candle chart (with 4% padding each side).
+  const candleYBounds = useMemo(() => {
+    if (chartMode !== "candle" || chartRenderData.length === 0) return null;
+    const first = chartRenderData[0];
+    if (first.high == null) return null;
+    const lows = chartRenderData.map((d) => d.low).filter((v) => v != null);
+    const highs = chartRenderData.map((d) => d.high).filter((v) => v != null);
+    const forecastPrices = collectForecastPrices(chartRenderData);
+    if (!lows.length || !highs.length) return null;
+    const minLow = Math.min(...lows, ...forecastPrices);
+    const maxHigh = Math.max(...highs, ...forecastPrices);
+    const pad = (maxHigh - minLow) * 0.04;
+    return [minLow - pad, maxHigh + pad];
+  }, [chartMode, chartRenderData]);
+
+  const OhlcCandleShape = useCallback(
+    (props) => renderCandleShape(props, candleYBounds),
+    [candleYBounds],
+  );
 
   // ── Trade handlers ──────────────────────────────────────────────────────────
 
@@ -1302,6 +1888,7 @@ const CryptoDetails = () => {
     <Tooltip
       content={
         <CustomTooltip
+          chartData={chartRenderData}
           range={range}
           chartMode={chartMode}
           chartType={chartType}
@@ -1349,151 +1936,245 @@ const CryptoDetails = () => {
 
       <div className="terminal-main">
         <div className="chart-column">
-        <section className="chart-section" aria-label="Live price chart">
-          {/* ── Timeframe + chart-mode controls ── */}
-          <div className="chart-controls-bar">
-            <div
-              className="timeframe-selectors"
-              role="tablist"
-              aria-label="Chart timeframe"
-            >
-              <div className="timeframe-selector-row">
-                <span className="timeframe-selector-label">Live:</span>
-                <div className="timeframe-selector">
-                  {LIVE_CHART_RANGES.map(({ value, label }) => (
-                    <button
-                      key={value}
-                      type="button"
-                      role="tab"
-                      className={`timeframe-btn${range === value ? " active" : ""}`}
-                      onClick={() => setRange(value)}
-                      aria-selected={range === value}
-                    >
-                      {label}
-                    </button>
-                  ))}
+          <section className="chart-section" aria-label="Live price chart">
+            {/* ── Timeframe + chart-mode controls ── */}
+            <div className="chart-controls-bar">
+              <div
+                className="timeframe-selectors"
+                role="tablist"
+                aria-label="Chart timeframe"
+              >
+                <div className="timeframe-selector-row">
+                  <span className="timeframe-selector-label timeframe-selector-label--live">
+                    Live:
+                  </span>
+                  <div className="timeframe-selector">
+                    {LIVE_CHART_RANGE_OPTIONS.map(({ value, label }) => (
+                      <button
+                        key={value}
+                        type="button"
+                        role="tab"
+                        className={`timeframe-btn${range === value ? " active" : ""}`}
+                        onClick={() => setRange(value)}
+                        aria-selected={range === value}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="timeframe-selector-row timeframe-selector-row--aggregated">
+                  <div className="timeframe-selector-aggregated-group">
+                    <span className="timeframe-selector-label">
+                      Aggregated:
+                    </span>
+                    <div className="timeframe-selector timeframe-selector--aggregated">
+                      {AGGREGATED_CHART_RANGE_OPTIONS.map(({ value, label }) => (
+                        <button
+                          key={value}
+                          type="button"
+                          role="tab"
+                          className={`timeframe-btn${range === value ? " active" : ""}`}
+                          onClick={() => setRange(value)}
+                          aria-selected={range === value}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
-              <div className="timeframe-selector-row">
-                <span className="timeframe-selector-label">Aggregated:</span>
-                <div className="timeframe-selector">
-                  {AGGREGATED_CHART_RANGES.map(({ value, label }) => (
+
+              <div className="chart-mode-controls">
+                <div className="chart-mode-toolbar">
+                  <fieldset className="chart-mode-group">
+                    <legend className="chart-mode-legend">Chart type</legend>
                     <button
-                      key={value}
                       type="button"
-                      role="tab"
-                      className={`timeframe-btn${range === value ? " active" : ""}`}
-                      onClick={() => setRange(value)}
-                      aria-selected={range === value}
+                      className={`chart-mode-btn${chartMode === "line" ? " active" : ""}`}
+                      onClick={() => setChartMode("line")}
                     >
-                      {label}
+                      Line
                     </button>
-                  ))}
+                    <button
+                      type="button"
+                      className={`chart-mode-btn${chartMode === "candle" ? " active" : ""}`}
+                      onClick={() => setChartMode("candle")}
+                    >
+                      Candle
+                    </button>
+                  </fieldset>
+
+                  {chartMode === "line" && (
+                    <fieldset className="chart-mode-group">
+                      <legend className="chart-mode-legend">Line mode</legend>
+                      <button
+                        type="button"
+                        className={`chart-mode-btn${lineMode === "mid" ? " active" : ""}`}
+                        onClick={() => setLineMode("mid")}
+                      >
+                        Mid
+                      </button>
+                      <button
+                        type="button"
+                        className={`chart-mode-btn spread-btn${lineMode === "spread" ? " active" : ""}${hasSpreadData ? "" : " disabled"}`}
+                        onClick={() => {
+                          if (hasSpreadData) setLineMode("spread");
+                        }}
+                        disabled={hasSpreadData === false}
+                        title={
+                          hasSpreadData
+                            ? undefined
+                            : "Spread data available for live tick ranges only"
+                        }
+                      >
+                        Spread
+                      </button>
+                    </fieldset>
+                  )}
+
+                  {canPredict && (
+                    <button
+                      type="button"
+                      className={`btn-ai-predict${showPredictions ? " active" : ""}`}
+                      onClick={handlePredictToggle}
+                      disabled={predictionLoading}
+                      aria-pressed={showPredictions}
+                    >
+                      ✦ AI Predict{predictionLoading ? " …" : ""}
+                    </button>
+                  )}
                 </div>
+
+                {canPredict && (
+                  <div className="chart-predict-secondary-row">
+                    {showPredictions ? (
+                      <>
+                        {predictionFilterLabel &&
+                          isPredictionChartRange(range) && (
+                            <p
+                              className="prediction-chart-filter"
+                              role="status"
+                            >
+                              Chart overlay: {predictionFilterLabel}
+                            </p>
+                          )}
+                        {!predictionFilterLabel &&
+                          isPredictionChartRange(range) && (
+                            <p
+                              className="prediction-chart-filter prediction-chart-filter--muted"
+                              role="status"
+                            >
+                              Loading forecast…
+                            </p>
+                          )}
+                        {!predictionFilterLabel &&
+                          !isPredictionChartRange(range) && (
+                            <p
+                              className="prediction-chart-filter prediction-chart-filter--muted"
+                              role="status"
+                            >
+                              Switch to 1H–1Y for forecast overlay
+                            </p>
+                          )}
+                        {isPredictionChartRange(range) && (
+                          <button
+                            type="button"
+                            className={`btn-predict-history${showHistoricalPredictions ? " active" : ""}`}
+                            onClick={() =>
+                              setShowHistoricalPredictions((v) => !v)
+                            }
+                            disabled={predictionLoading}
+                            aria-pressed={showHistoricalPredictions}
+                          >
+                            Past predictions
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <span
+                        className="chart-predict-secondary-placeholder"
+                        aria-hidden="true"
+                      />
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
-            <div className="chart-mode-controls">
-              <fieldset className="chart-mode-group">
-                <legend className="chart-mode-legend">Chart type</legend>
-                <button
-                  type="button"
-                  className={`chart-mode-btn${chartMode === "line" ? " active" : ""}`}
-                  onClick={() => setChartMode("line")}
-                >
-                  Line
-                </button>
-                <button
-                  type="button"
-                  className={`chart-mode-btn${chartMode === "candle" ? " active" : ""}`}
-                  onClick={() => setChartMode("candle")}
-                >
-                  Candle
-                </button>
-              </fieldset>
+            {/* ── Chart area ── */}
+            <div className="crypto-chart-wrapper">
+              {renderChartStatus(displayData, isLoading, chartType)}
 
-              {chartMode === "line" && (
-                <fieldset className="chart-mode-group">
-                  <legend className="chart-mode-legend">Line mode</legend>
-                  <button
-                    type="button"
-                    className={`chart-mode-btn${lineMode === "mid" ? " active" : ""}`}
-                    onClick={() => setLineMode("mid")}
-                  >
-                    Mid
-                  </button>
-                  <button
-                    type="button"
-                    className={`chart-mode-btn spread-btn${lineMode === "spread" ? " active" : ""}${hasSpreadData ? "" : " disabled"}`}
-                    onClick={() => {
-                      if (hasSpreadData) setLineMode("spread");
-                    }}
-                    disabled={hasSpreadData === false}
-                    title={
-                      hasSpreadData
-                        ? undefined
-                        : "Spread data available for live tick ranges only"
-                    }
-                  >
-                    Spread
-                  </button>
-                </fieldset>
+              {chartRenderData.length > 0 && chartMode === "candle" && (
+                <ChartCandleView
+                  displayData={chartRenderData}
+                  range={range}
+                  candleYBounds={candleYBounds}
+                  OhlcCandleShape={OhlcCandleShape}
+                  sharedXAxis={sharedXAxis}
+                  sharedYAxis={sharedYAxis}
+                  sharedTooltip={sharedTooltip}
+                  predictionLineConfigs={
+                    showPredictions ? predictionLineConfigs : []
+                  }
+                />
               )}
 
-              <button type="button" className="btn-ai-predict" disabled>
-                ✦ AI Predict <span className="ai-badge">Beta</span>
-              </button>
+              {chartRenderData.length > 0 && chartMode === "line" && (
+                <ChartLineView
+                  displayData={chartRenderData}
+                  range={range}
+                  lineMode={lineMode}
+                  hasSpreadData={hasSpreadData}
+                  chartType={chartType}
+                  sharedXAxis={sharedXAxis}
+                  sharedYAxis={sharedYAxis}
+                  sharedTooltip={sharedTooltip}
+                  predictionLineConfigs={
+                    showPredictions ? predictionLineConfigs : []
+                  }
+                />
+              )}
+
+              {isLoading && displayData.length > 0 && (
+                <div className="chart-loading-badge" aria-live="polite">
+                  Updating…
+                </div>
+              )}
             </div>
-          </div>
 
-          {/* ── Chart area ── */}
-          <div className="crypto-chart-wrapper">
-            {renderChartStatus(displayData, isLoading, chartType)}
+            <StatsDashboard
+              isLoadingStats={isLoadingStats}
+              stats={stats}
+              periodStats={periodStats}
+              avgEntryPrice={avgEntryPrice}
+              currentPrice={currentMidPrice}
+            />
 
-            {displayData.length > 0 && chartMode === "candle" && (
-              <ChartCandleView
-                displayData={displayData}
-                range={range}
-                candleYBounds={candleYBounds}
-                OhlcCandleShape={OhlcCandleShape}
-                sharedXAxis={sharedXAxis}
-                sharedYAxis={sharedYAxis}
-                sharedTooltip={sharedTooltip}
+            {canPredict && (
+              <PredictionPanel
+                prediction={prediction}
+                loading={predictionLoading}
+                error={predictionError}
+                onRefresh={() =>
+                  loadPredictions(
+                    predictionPath,
+                    HISTORY_FETCH_LIMIT[range] ?? 50,
+                  )
+                }
+                visible={showPredictions}
               />
             )}
+          </section>
 
-            {displayData.length > 0 && chartMode === "line" && (
-              <ChartLineView
-                displayData={displayData}
-                range={range}
-                lineMode={lineMode}
-                hasSpreadData={hasSpreadData}
-                chartType={chartType}
-                sharedXAxis={sharedXAxis}
-                sharedYAxis={sharedYAxis}
-                sharedTooltip={sharedTooltip}
-              />
-            )}
-
-            {isLoading && displayData.length > 0 && (
-              <div className="chart-loading-badge" aria-live="polite">
-                Updating…
-              </div>
-            )}
-          </div>
-
-          <StatsDashboard
-            isLoadingStats={isLoadingStats}
-            stats={stats}
-            periodStats={periodStats}
-          />
-        </section>
-
-        {range === "ALL" && (
-          <p className="all-time-disclaimer" role="note">
-            All-time data means price history since this asset started trading on the Kraken platform.
-          </p>
-        )}
+          {range === "ALL" && (
+            <p className="all-time-disclaimer" role="note">
+              All-time data means price history since this asset started trading
+              on the Kraken platform.
+            </p>
+          )}
         </div>
 
         <OrderPanel

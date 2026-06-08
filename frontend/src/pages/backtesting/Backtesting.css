@@ -1,0 +1,64 @@
+.backtesting-page {
+  padding: 1.5rem 2rem;
+  max-width: 1100px;
+}
+
+.backtesting-subtitle {
+  color: var(--color-text-muted, #9ca3af);
+  margin-bottom: 1.5rem;
+}
+
+.backtest-controls {
+  margin-bottom: 1rem;
+}
+
+.backtest-controls select {
+  margin-left: 0.5rem;
+  padding: 0.35rem 0.5rem;
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: inherit;
+}
+
+.backtest-table-wrap {
+  overflow-x: auto;
+  margin-bottom: 2rem;
+}
+
+.backtest-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.backtest-table th,
+.backtest-table td {
+  padding: 0.65rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border, #2a2f3a);
+}
+
+.backtest-table th {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+.drift-panel {
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+}
+
+.drift-panel h3 {
+  margin: 0 0 1rem;
+  font-size: 1rem;
+}
+
+.drift-empty {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}

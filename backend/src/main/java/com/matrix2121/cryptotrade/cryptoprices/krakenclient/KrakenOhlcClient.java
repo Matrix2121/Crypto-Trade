@@ -218,12 +218,16 @@ public class KrakenOhlcClient {
 
     private OhlcDto parseCandle(JsonNode candle) {
         long timestampMs = candle.get(0).asLong() * 1000L;
+        BigDecimal volume = candle.size() > 6
+                ? new BigDecimal(candle.get(6).asText())
+                : BigDecimal.ZERO;
         return new OhlcDto(
                 timestampMs,
                 new BigDecimal(candle.get(1).asText()),
                 new BigDecimal(candle.get(2).asText()),
                 new BigDecimal(candle.get(3).asText()),
-                new BigDecimal(candle.get(4).asText()));
+                new BigDecimal(candle.get(4).asText()),
+                volume);
     }
 
     private void validateKrakenResponse(JsonNode body) {

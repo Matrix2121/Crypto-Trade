@@ -1,5 +1,6 @@
-import React, { useContext, useMemo, useState } from "react";
+import React, { useContext, useEffect, useMemo, useState } from "react";
 import { AppContext } from "../../context/AppContext";
+import usePortfolioAnalytics from "../../hooks/usePortfolioAnalytics";
 import useBalance from "../../hooks/useBalance";
 import useTransactions from "../../hooks/useTransactions";
 import useAssets from "../../hooks/useAssets";
@@ -12,7 +13,7 @@ import {
   formatBalanceUsd,
   formatCryptoAmount,
 } from "../../utils/formatBalance";
-import { getCryptoIconPath } from "../../utils/getCryptoIconPath";
+import { getCryptoIconPath, handleCryptoIconError } from "../../utils/getCryptoIconPath";
 import { buildBalanceChartData } from "../../utils/buildBalanceChartData";
 import {
   LineChart,
@@ -22,6 +23,12 @@ import {
   Tooltip,
   ResponsiveContainer,
   ReferenceLine,
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+  CartesianGrid,
 } from "recharts";
 import "./Portfolio.css";
 
@@ -141,8 +148,10 @@ function computeYDomain(points) {
   return [Math.max(0, min - padding), max + padding];
 }
 
+const ALLOCATION_COLORS = ["#3b82f6", "#22c55e", "#f59e0b", "#a855f7", "#ef4444", "#06b6d4"];
+
 const Portfolio = () => {
-  const { balance, assets, transactions, doReset } = useContext(AppContext);
+  const { user, balance, assets, transactions, doReset } = useContext(AppContext);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [sellingCode, setSellingCode] = useState(null);
   const [sellingAll, setSellingAll] = useState(false);
@@ -154,6 +163,11 @@ const Portfolio = () => {
   useReset();
   const prices = usePrices();
   const sell = useSell();
+  const { analytics, fetchAnalytics } = usePortfolioAnalytics();
+
+  useEffect(() => {
+    if (user?.id) fetchAnalytics(user.id);
+  }, [user?.id, fetchAnalytics, assets, balance, transactions]);
 
   const { startBalance, points: chartData } = useMemo(
     () => buildBalanceChartData(transactions, balance),
@@ -386,11 +400,7 @@ const Portfolio = () => {
                     alt={holding.cryptoCode}
                     width={28}
                     height={28}
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.src =
-                        "https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/32/icon/generic.png";
-                    }}
+                    onError={handleCryptoIconError}
                   />
                   <div className="portfolio-holding-text">
                     <span className="portfolio-holding-symbol">
@@ -437,6 +447,70 @@ const Portfolio = () => {
           })}
         </ul>
       </div>
+
+      {analytics && (
+        <div className="portfolio-analytics">
+          <div className="portfolio-analytics-summary">
+            <div>
+              <span className="pa-label">Total portfolio</span>
+              <strong>{formatBalanceUsd(analytics.totalPortfolioValue)}</strong>
+            </div>
+            <div>
+              <span className="pa-label">Unrealized P&amp;L</span>
+              <strong className={Number(analytics.unrealizedPnl) >= 0 ? "positive" : "negative"}>
+                {formatBalanceUsd(analytics.unrealizedPnl)}
+              </strong>
+            </div>
+            <div>
+              <span className="pa-label">Realized P&amp;L</span>
+              <strong className={Number(analytics.realizedPnl) >= 0 ? "positive" : "negative"}>
+                {formatBalanceUsd(analytics.realizedPnl)}
+              </strong>
+            </div>
+          </div>
+
+          <div className="portfolio-charts-row">
+            <div className="portfolio-chart-card">
+              <h3>Asset Allocation</h3>
+              <ResponsiveContainer width="100%" height={200}>
+                <PieChart>
+                  <Pie
+                    data={(analytics.allocation || []).filter((s) => Number(s.valueUsd) > 0)}
+                    dataKey="valueUsd"
+                    nameKey="label"
+                    innerRadius={50}
+                    outerRadius={80}
+                    paddingAngle={2}
+                  >
+                    {(analytics.allocation || []).map((_, i) => (
+                      <Cell key={i} fill={ALLOCATION_COLORS[i % ALLOCATION_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(v) => formatBalanceUsd(v)} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="portfolio-chart-card">
+              <h3>P&amp;L by Asset</h3>
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart
+                  data={(analytics.holdings || []).map((h) => ({
+                    name: h.cryptoCode,
+                    pnl: Number(h.unrealizedPnl || 0),
+                  }))}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                  <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                  <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `$${v}`} />
+                  <Tooltip formatter={(v) => formatBalanceUsd(v)} />
+                  <Bar dataKey="pnl" fill="#3b82f6" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showResetConfirm && (
         <div

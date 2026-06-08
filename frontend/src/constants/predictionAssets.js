@@ -1,0 +1,3 @@
+export const PREDICTION_ASSETS = ["BTC/USD", "ETH/USD", "SOL/USD", "LINK/USD"];
+
+export const PREDICTION_ASSET_SET = new Set(PREDICTION_ASSETS);

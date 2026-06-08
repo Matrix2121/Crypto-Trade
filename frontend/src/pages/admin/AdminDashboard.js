@@ -30,6 +30,8 @@ const AdminDashboard = () => {
   const [error, setError] = useState(null);
   const [isSyncingData, setIsSyncingData] = useState(false);
   const [isSyncingStats, setIsSyncingStats] = useState(false);
+  const [isRunningHourlyPredict, setIsRunningHourlyPredict] = useState(false);
+  const [isRunningDailyPredict, setIsRunningDailyPredict] = useState(false);
   const [actionMessage, setActionMessage] = useState(null);
 
   const loadTrackedCryptos = useCallback(async () => {
@@ -132,6 +134,58 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleRunHourlyPredictions = async () => {
+    setIsRunningHourlyPredict(true);
+    setActionMessage(null);
+    try {
+      const response = await fetch(`${apiUrl}/api/admin/predictions/hourly`, {
+        method: "POST",
+        headers: authHeaders(),
+      });
+      if (response.status === 409) {
+        setActionMessage("Hourly prediction run is already in progress.");
+        return;
+      }
+      if (!response.ok) {
+        throw new Error(`Hourly prediction failed (${response.status})`);
+      }
+      setActionMessage(
+        "Hourly 1h ML predictions started (timestamp aligned to next UTC :00)."
+      );
+    } catch (err) {
+      console.error(err);
+      setActionMessage("Failed to start hourly predictions.");
+    } finally {
+      setIsRunningHourlyPredict(false);
+    }
+  };
+
+  const handleRunDailyPredictions = async () => {
+    setIsRunningDailyPredict(true);
+    setActionMessage(null);
+    try {
+      const response = await fetch(`${apiUrl}/api/admin/predictions/daily`, {
+        method: "POST",
+        headers: authHeaders(),
+      });
+      if (response.status === 409) {
+        setActionMessage("Daily context-aware prediction run is already in progress.");
+        return;
+      }
+      if (!response.ok) {
+        throw new Error(`Daily prediction failed (${response.status})`);
+      }
+      setActionMessage(
+        "Daily context-aware predictions started (timestamp aligned to next UTC 00:00)."
+      );
+    } catch (err) {
+      console.error(err);
+      setActionMessage("Failed to start daily context-aware predictions.");
+    } finally {
+      setIsRunningDailyPredict(false);
+    }
+  };
+
   const handleSyncMarketStats = async () => {
     setIsSyncingStats(true);
     setActionMessage(null);
@@ -160,7 +214,9 @@ const AdminDashboard = () => {
     <div className="admin-page">
       <header className="admin-header">
         <h2>Admin Dashboard</h2>
-        <p className="admin-subtitle">Manage tracked cryptocurrencies and market data sync.</p>
+        <p className="admin-subtitle">
+          Manage tracked cryptocurrencies, market data sync, and on-demand ML predictions.
+        </p>
       </header>
 
       <section className="admin-section">
@@ -181,6 +237,32 @@ const AdminDashboard = () => {
             disabled={isSyncingStats}
           >
             {isSyncingStats ? "Syncing…" : "Sync market stats"}
+          </button>
+        </div>
+      </section>
+
+      <section className="admin-section">
+        <h3 className="admin-section-title">Predictions</h3>
+        <p className="admin-hint admin-hint-block">
+          Run ML batches for all configured assets. Hourly forecasts use the next UTC hour
+          boundary; context-aware daily forecasts use the next UTC midnight.
+        </p>
+        <div className="admin-sync-row">
+          <button
+            type="button"
+            className="admin-btn admin-btn-primary"
+            onClick={handleRunHourlyPredictions}
+            disabled={isRunningHourlyPredict}
+          >
+            {isRunningHourlyPredict ? "Running…" : "Run hourly predictions"}
+          </button>
+          <button
+            type="button"
+            className="admin-btn admin-btn-secondary"
+            onClick={handleRunDailyPredictions}
+            disabled={isRunningDailyPredict}
+          >
+            {isRunningDailyPredict ? "Running…" : "Run context-aware daily"}
           </button>
         </div>
       </section>

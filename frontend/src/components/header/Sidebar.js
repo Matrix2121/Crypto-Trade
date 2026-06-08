@@ -12,6 +12,7 @@ const MAIN_NAV = { to: "/market", label: "Market", icon: "📈" };
 const OTHER_NAV = [
   { to: "/portfolio", label: "Portfolio", icon: "💼" },
   { to: "/transactions", label: "Transactions", icon: "🧾" },
+  { to: "/backtesting", label: "Backtesting", icon: "📊" },
 ];
 
 function SidebarCryptoLink({ code, isFavorite, isActive, isExpanded, onNavigate }) {
@@ -81,7 +82,7 @@ const Sidebar = ({ mobileOpen = false, onMobileClose }) => {
     >
       <div className="sidebar-top">
         <div className="sidebar-header">
-          <div className="sidebar-brand">{showLabels ? "Noq Trade" : ""}</div>
+          <div className="sidebar-brand">{showLabels ? "CryptoTrade" : ""}</div>
           <button
             type="button"
             className="sidebar-toggle"

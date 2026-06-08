@@ -50,6 +50,9 @@ public class OhlcData {
     @Column(nullable = false, precision = 24, scale = 8)
     private BigDecimal close;
 
+    @Column(nullable = false, precision = 24, scale = 8)
+    private BigDecimal volume = BigDecimal.ZERO;
+
     protected OhlcData() {
     }
 
@@ -61,6 +64,18 @@ public class OhlcData {
             BigDecimal high,
             BigDecimal low,
             BigDecimal close) {
+        this(symbol, intervalString, timestamp, open, high, low, close, BigDecimal.ZERO);
+    }
+
+    public OhlcData(
+            String symbol,
+            String intervalString,
+            Long timestamp,
+            BigDecimal open,
+            BigDecimal high,
+            BigDecimal low,
+            BigDecimal close,
+            BigDecimal volume) {
         this.symbol = symbol;
         this.intervalString = intervalString;
         this.timestamp = timestamp;
@@ -68,6 +83,7 @@ public class OhlcData {
         this.high = high;
         this.low = low;
         this.close = close;
+        this.volume = volume != null ? volume : BigDecimal.ZERO;
     }
 
     public Long getId() {
@@ -100,5 +116,9 @@ public class OhlcData {
 
     public BigDecimal getClose() {
         return close;
+    }
+
+    public BigDecimal getVolume() {
+        return volume;
     }
 }
