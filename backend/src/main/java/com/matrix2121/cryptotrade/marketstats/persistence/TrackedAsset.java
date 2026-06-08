@@ -41,6 +41,9 @@ public class TrackedAsset {
     @Column(name = "volume_24h")
     private Long volume24h;
 
+    @Column(name = "coingecko_id", length = 64)
+    private String coingeckoId;
+
     protected TrackedAsset() {
     }
 
@@ -53,6 +56,19 @@ public class TrackedAsset {
             Long athTimestamp,
             Double change24h,
             Long volume24h) {
+        this(symbol, marketRank, marketCap, circulatingSupply, allTimeHigh, athTimestamp, change24h, volume24h, null);
+    }
+
+    public TrackedAsset(
+            String symbol,
+            Integer marketRank,
+            Long marketCap,
+            Long circulatingSupply,
+            BigDecimal allTimeHigh,
+            Long athTimestamp,
+            Double change24h,
+            Long volume24h,
+            String coingeckoId) {
         this.symbol = symbol;
         this.marketRank = marketRank;
         this.marketCap = marketCap;
@@ -61,6 +77,7 @@ public class TrackedAsset {
         this.athTimestamp = athTimestamp;
         this.change24h = change24h;
         this.volume24h = volume24h;
+        this.coingeckoId = coingeckoId;
     }
 
     public String getSymbol() {
@@ -121,5 +138,13 @@ public class TrackedAsset {
 
     public void setVolume24h(Long volume24h) {
         this.volume24h = volume24h;
+    }
+
+    public String getCoingeckoId() {
+        return coingeckoId;
+    }
+
+    public void setCoingeckoId(String coingeckoId) {
+        this.coingeckoId = coingeckoId;
     }
 }

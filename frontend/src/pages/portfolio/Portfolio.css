@@ -394,3 +394,55 @@
     min-height: 44px;
   }
 }
+
+.portfolio-analytics {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--color-border, #2a2f3a);
+}
+
+.portfolio-analytics-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.portfolio-analytics-summary .pa-label {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-bottom: 0.25rem;
+}
+
+.portfolio-analytics-summary strong {
+  font-size: 1.1rem;
+}
+
+.portfolio-analytics-summary .positive { color: #22c55e; }
+.portfolio-analytics-summary .negative { color: #ef4444; }
+
+.portfolio-charts-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.portfolio-chart-card {
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.portfolio-chart-card h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 768px) {
+  .portfolio-analytics-summary,
+  .portfolio-charts-row {
+    grid-template-columns: 1fr;
+  }
+}

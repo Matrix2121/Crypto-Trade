@@ -15,10 +15,12 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.matrix2121.cryptotrade.admin.dto.AddTrackedCryptoRequest;
 import com.matrix2121.cryptotrade.marketdata.MarketDataSyncService;
+import com.matrix2121.cryptotrade.marketdata.OhlcDataCleanupService;
 import com.matrix2121.cryptotrade.marketstats.MarketStatsService;
 import com.matrix2121.cryptotrade.marketstats.MarketStatsSyncService;
 import com.matrix2121.cryptotrade.marketstats.dto.TrackedAssetDto;
 import com.matrix2121.cryptotrade.marketstats.persistence.TrackedAsset;
+import com.matrix2121.cryptotrade.predictions.MlServiceClient;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -28,18 +30,26 @@ public class AdminController {
     private final AdminTrackedCryptoService adminTrackedCryptoService;
     private final MarketDataSyncService marketDataSyncService;
     private final MarketStatsSyncService marketStatsSyncService;
-    private final AtomicBoolean historySyncInProgress = new AtomicBoolean(false);
+    private final OhlcDataCleanupService ohlcDataCleanupService;
+    private final MlServiceClient mlServiceClient;
     private final AtomicBoolean statsSyncInProgress = new AtomicBoolean(false);
+    private final AtomicBoolean cleanupInProgress = new AtomicBoolean(false);
+    private final AtomicBoolean hourlyPredictInProgress = new AtomicBoolean(false);
+    private final AtomicBoolean dailyPredictInProgress = new AtomicBoolean(false);
 
     public AdminController(
             MarketStatsService marketStatsService,
             AdminTrackedCryptoService adminTrackedCryptoService,
             MarketDataSyncService marketDataSyncService,
-            MarketStatsSyncService marketStatsSyncService) {
+            MarketStatsSyncService marketStatsSyncService,
+            OhlcDataCleanupService ohlcDataCleanupService,
+            MlServiceClient mlServiceClient) {
         this.marketStatsService = marketStatsService;
         this.adminTrackedCryptoService = adminTrackedCryptoService;
         this.marketDataSyncService = marketDataSyncService;
         this.marketStatsSyncService = marketStatsSyncService;
+        this.ohlcDataCleanupService = ohlcDataCleanupService;
+        this.mlServiceClient = mlServiceClient;
     }
 
     @GetMapping("/tracked-cryptos")
@@ -61,16 +71,9 @@ public class AdminController {
 
     @PostMapping("/sync/market-data")
     public ResponseEntity<Void> syncMarketData() {
-        if (!historySyncInProgress.compareAndSet(false, true)) {
+        if (!marketDataSyncService.runSyncAsync("admin")) {
             return ResponseEntity.status(409).build();
         }
-        CompletableFuture.runAsync(() -> {
-            try {
-                marketDataSyncService.syncAll();
-            } finally {
-                historySyncInProgress.set(false);
-            }
-        });
         return ResponseEntity.accepted().build();
     }
 
@@ -84,6 +87,51 @@ public class AdminController {
                 marketStatsSyncService.syncMarketStats();
             } finally {
                 statsSyncInProgress.set(false);
+            }
+        });
+        return ResponseEntity.accepted().build();
+    }
+
+    @PostMapping("/sync/cleanup")
+    public ResponseEntity<Void> syncCleanup() {
+        if (!cleanupInProgress.compareAndSet(false, true)) {
+            return ResponseEntity.status(409).build();
+        }
+        CompletableFuture.runAsync(() -> {
+            try {
+                ohlcDataCleanupService.runCleanup();
+            } finally {
+                cleanupInProgress.set(false);
+            }
+        });
+        return ResponseEntity.accepted().build();
+    }
+
+    @PostMapping("/predictions/hourly")
+    public ResponseEntity<Void> triggerHourlyPredictions() {
+        if (!hourlyPredictInProgress.compareAndSet(false, true)) {
+            return ResponseEntity.status(409).build();
+        }
+        CompletableFuture.runAsync(() -> {
+            try {
+                mlServiceClient.triggerHourlyBatchPredict("admin");
+            } finally {
+                hourlyPredictInProgress.set(false);
+            }
+        });
+        return ResponseEntity.accepted().build();
+    }
+
+    @PostMapping("/predictions/daily")
+    public ResponseEntity<Void> triggerDailyPredictions() {
+        if (!dailyPredictInProgress.compareAndSet(false, true)) {
+            return ResponseEntity.status(409).build();
+        }
+        CompletableFuture.runAsync(() -> {
+            try {
+                mlServiceClient.triggerDailyBatchPredict("admin");
+            } finally {
+                dailyPredictInProgress.set(false);
             }
         });
         return ResponseEntity.accepted().build();

@@ -8,6 +8,7 @@ import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 
+import com.matrix2121.cryptotrade.marketstats.CoinGeckoIdResolver;
 import com.matrix2121.cryptotrade.marketstats.persistence.TrackedAsset;
 import com.matrix2121.cryptotrade.marketstats.persistence.TrackedAssetRepository;
 
@@ -23,12 +24,16 @@ public class TrackedSymbolsService {
             "BCH/USD", "AVAX/USD", "SHIB/USD", "TON/USD", "LTC/USD");
 
     private final TrackedAssetRepository trackedAssetRepository;
+    private final CoinGeckoIdResolver coinGeckoIdResolver;
 
     private volatile List<String> symbols = List.of();
     private volatile Map<String, String> baseToSymbol = Map.of();
 
-    public TrackedSymbolsService(TrackedAssetRepository trackedAssetRepository) {
+    public TrackedSymbolsService(
+            TrackedAssetRepository trackedAssetRepository,
+            CoinGeckoIdResolver coinGeckoIdResolver) {
         this.trackedAssetRepository = trackedAssetRepository;
+        this.coinGeckoIdResolver = coinGeckoIdResolver;
     }
 
     @PostConstruct
@@ -42,8 +47,9 @@ public class TrackedSymbolsService {
             return;
         }
         for (String symbol : DEFAULT_SYMBOLS) {
+            String coingeckoId = coinGeckoIdResolver.resolveDefault(symbol).orElse(null);
             trackedAssetRepository.save(
-                    new TrackedAsset(symbol, null, null, null, null, null, null, null));
+                    new TrackedAsset(symbol, null, null, null, null, null, null, null, coingeckoId));
         }
     }
 

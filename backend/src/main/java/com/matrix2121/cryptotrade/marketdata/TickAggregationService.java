@@ -22,11 +22,16 @@ import lombok.extern.slf4j.Slf4j;
  * Cascading OHLC aggregator.
  *
  * <pre>
- * Every 1 min   : LiveTickCacheService (RAM) → ohlc_data (interval "1m")
- * Every 30 min  : ohlc_data "1m"  → ohlc_data "30m"
- * Every 2 hours : ohlc_data "1h"  → ohlc_data "2h"
- * Every 8 hours : ohlc_data "4h"  → ohlc_data "8h"
- * Every 24 hours: ohlc_data "1d"  → ohlc_data "5d" and "1mo"
+ * Every 1 min   : LiveTickCacheService (RAM) → ohlc_data ("1m")
+ * Every 30 min  : "1m"  → "30m"
+ * Every 1 hour  : "30m" → "1h"
+ * Every 2 hours : "1h"  → "2h"
+ * Every 4 hours : "1h"  → "4h"
+ * Every 8 hours : "4h"  → "8h"
+ * Every 24 hours: "1d" (Kraken) → "5d" and "1mo"
+ *
+ * Live chain: ticks → 1m → 30m → 1h → 2h
+ *                              └→ 4h → 8h
  * </pre>
  */
 @Slf4j
@@ -37,13 +42,16 @@ public class TickAggregationService {
     private static final long THIRTY_MIN_MS = 30L * ONE_MIN_MS;
     private static final long MS_PER_HOUR = 60L * 60 * 1_000;
     private static final long TWO_HOUR_MS = 2L * MS_PER_HOUR;
+    private static final long FOUR_HOUR_MS = 4L * MS_PER_HOUR;
     private static final long EIGHT_HOUR_MS = 8L * MS_PER_HOUR;
     private static final long MS_PER_DAY = 24L * MS_PER_HOUR;
     private static final long FIVE_DAY_MS = 5L * MS_PER_DAY;
     private static final long ONE_MONTH_MS = 30L * MS_PER_DAY;
 
     private static final List<SyntheticSpec> SYNTHETIC_SPECS = List.of(
+            new SyntheticSpec("30m", "1h", MS_PER_HOUR),
             new SyntheticSpec("1h", "2h", TWO_HOUR_MS),
+            new SyntheticSpec("1h", "4h", FOUR_HOUR_MS),
             new SyntheticSpec("4h", "8h", EIGHT_HOUR_MS),
             new SyntheticSpec("1d", "5d", FIVE_DAY_MS),
             new SyntheticSpec("1d", "1mo", ONE_MONTH_MS));
@@ -93,14 +101,28 @@ public class TickAggregationService {
         aggregateOhlcFromOhlc("1m", "30m", THIRTY_MIN_MS, now - THIRTY_MIN_MS, now);
     }
 
-    @Scheduled(cron = "0 0 0/2 * * ?")
+    @Scheduled(cron = "0 5 * * * ?")
+    @Transactional
+    public void aggregate1h() {
+        long now = System.currentTimeMillis();
+        aggregateOhlcFromOhlc("30m", "1h", MS_PER_HOUR, now - MS_PER_HOUR, now);
+    }
+
+    @Scheduled(cron = "0 10 0/2 * * ?")
     @Transactional
     public void aggregate2h() {
         long now = System.currentTimeMillis();
         aggregateOhlcFromOhlc("1h", "2h", TWO_HOUR_MS, now - TWO_HOUR_MS, now);
     }
 
-    @Scheduled(cron = "0 0 0/8 * * ?")
+    @Scheduled(cron = "0 15 0/4 * * ?")
+    @Transactional
+    public void aggregate4h() {
+        long now = System.currentTimeMillis();
+        aggregateOhlcFromOhlc("1h", "4h", FOUR_HOUR_MS, now - FOUR_HOUR_MS, now);
+    }
+
+    @Scheduled(cron = "0 20 0/8 * * ?")
     @Transactional
     public void aggregate8h() {
         long now = System.currentTimeMillis();
@@ -224,7 +246,8 @@ public class TickAggregationService {
         BigDecimal low = ticks.stream()
                 .map(TickDto::price).min(BigDecimal::compareTo).orElseThrow();
 
-        return new OhlcData(symbol, intervalString, windowStart, open, high, low, close);
+        BigDecimal volume = BigDecimal.valueOf(ticks.size());
+        return new OhlcData(symbol, intervalString, windowStart, open, high, low, close, volume);
     }
 
     private List<OhlcData> buildCandlesFromOhlc(
@@ -252,10 +275,13 @@ public class TickAggregationService {
                 .map(OhlcData::getHigh).max(BigDecimal::compareTo).orElseThrow();
         BigDecimal low = source.stream()
                 .map(OhlcData::getLow).min(BigDecimal::compareTo).orElseThrow();
+        BigDecimal volume = source.stream()
+                .map(OhlcData::getVolume)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         return new OhlcData(
                 symbol, targetInterval, windowStart,
-                first.getOpen(), high, low, last.getClose());
+                first.getOpen(), high, low, last.getClose(), volume);
     }
 
     private void upsertOhlcCandles(String symbol, String intervalString, List<OhlcData> incoming) {

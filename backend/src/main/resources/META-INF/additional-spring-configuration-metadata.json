@@ -8,5 +8,10 @@
     "name": "jwt.secret",
     "type": "java.lang.String",
     "description": "jwt secret key"
+  },
+  {
+    "name": "market-data.startup-check.enabled",
+    "type": "java.lang.Boolean",
+    "description": "When true, checks OHLC freshness on application start and triggers a background Kraken sync if data is stale"
   }
 ]}

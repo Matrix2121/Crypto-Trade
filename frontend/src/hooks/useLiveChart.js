@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import usePrices, { getTickMidPrice } from "./usePrices";
+import {
+  CHART_BUCKET_MS,
+  CHART_RANGES,
+  LIVE_CANDLE_PERIOD_MS,
+  OHLC_WINDOW_MS,
+} from "../constants/chartConfig";
 
-// ─── Public range list ────────────────────────────────────────────────────────
-
-export const CHART_RANGES = [
-  "1Min", "5Min", "15Min",
-  "1H", "1D", "1W", "1M", "3M", "1Y", "5Y", "ALL",
-];
+export { CHART_RANGES };
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const FIFTEEN_S_BUCKET_MS = 15_000;
+const FIFTEEN_S_BUCKET_MS = LIVE_CANDLE_PERIOD_MS;
 const FIFTEEN_MIN_MS      = 15 * 60 * 1_000;
 const MAX_TICK_POINTS     = 2_000;
 
@@ -23,18 +24,11 @@ const TICK_WINDOW_MS = {
   "15Min": 15 * 60 * 1_000,
 };
 
-const OHLC_WINDOW_MS = {
-  "1H":   1 * 60 * 60 * 1_000,
-  "1D":  24 * 60 * 60 * 1_000,
-  "1W":   7 * 24 * 60 * 60 * 1_000,
-  "1M":  30 * 24 * 60 * 60 * 1_000,
-  "3M":  90 * 24 * 60 * 60 * 1_000,
-  "1Y": 365 * 24 * 60 * 60 * 1_000,
-  "5Y": 5 * 365 * 24 * 60 * 60 * 1_000,
-  "ALL": null,
-};
+const OHLC_BUCKET_MS = CHART_BUCKET_MS;
 
 const LIVE_OHLC_RANGES = Object.keys(OHLC_WINDOW_MS);
+
+const LONG_OHLC_REFRESH_MS = 10 * 60_000;
 
 // Master arrays replace the per-range tick/candle keys.
 // Long OHLC ranges start as null (unfetched) and are populated lazily.
@@ -42,7 +36,7 @@ const EMPTY_CACHE = {
   masterTicks:      [],
   master15sCandles: [],
   "1H": null, "1D": null, "1W": null,
-  "1M": null, "3M": null, "1Y": null, "5Y": null, "ALL": null,
+  "1M": null, "3M": null, "1Y": null, ALL: null,
 };
 
 // ─── Pure helpers ─────────────────────────────────────────────────────────────
@@ -98,6 +92,59 @@ function filterByWindow(data, windowMs) {
   return data.filter((p) => p.timestamp >= cutoff);
 }
 
+function floorToBucketMs(timestamp, bucketMs) {
+  return Math.floor(timestamp / bucketMs) * bucketMs;
+}
+
+/**
+ * Apply a live tick to a long-range OHLC series.
+ * Updates the active bucket or appends a new candle when time advances.
+ */
+function applyLiveTickToOhlcCandles(candles, price, timestamp, bucketMs, windowMs) {
+  if (!candles?.length) return candles;
+
+  const bucket = floorToBucketMs(timestamp, bucketMs);
+  const last = candles[candles.length - 1];
+  let updated;
+
+  if (last.timestamp === bucket) {
+    updated = [
+      ...candles.slice(0, -1),
+      {
+        ...last,
+        close: price,
+        high: Math.max(last.high, price),
+        low: Math.min(last.low, price),
+      },
+    ];
+  } else if (bucket > last.timestamp) {
+    const open = last.close;
+    updated = [
+      ...candles,
+      {
+        timestamp: bucket,
+        open,
+        high: Math.max(open, price),
+        low: Math.min(open, price),
+        close: price,
+      },
+    ];
+  } else {
+    const idx = candles.findIndex((c) => c.timestamp === bucket);
+    if (idx < 0) return candles;
+    const candle = candles[idx];
+    updated = [...candles];
+    updated[idx] = {
+      ...candle,
+      close: price,
+      high: Math.max(candle.high, price),
+      low: Math.min(candle.low, price),
+    };
+  }
+
+  return filterByWindow(updated, windowMs);
+}
+
 // ─── Network ──────────────────────────────────────────────────────────────────
 
 async function fetchRangeHistory(symbol, range) {
@@ -132,6 +179,7 @@ const useLiveChart = (symbol, initialRange = "1Min", chartMode = "line") => {
 
   const cache          = useRef({ ...EMPTY_CACHE });
   const lastLiveKeyRef = useRef(null);
+  const latestLiveRef  = useRef({ price: null, timestamp: null });
 
   // Refs mirror the latest range/chartMode values so stable callbacks can read
   // them without needing those values in their dependency arrays.
@@ -212,8 +260,13 @@ const useLiveChart = (symbol, initialRange = "1Min", chartMode = "line") => {
         const raw     = await fetchRangeHistory(symbol, range);
         if (cancelled) return;
         const fetched = filterByWindow(mapOhlcToChart(raw), windowMs);
-        cache.current[range] = fetched;
-        setChartData(fetched);
+        const bucketMs = OHLC_BUCKET_MS[range];
+        const { price: livePrice, timestamp: liveTs } = latestLiveRef.current;
+        const merged = livePrice != null && bucketMs
+          ? applyLiveTickToOhlcCandles(fetched, livePrice, liveTs, bucketMs, windowMs)
+          : fetched;
+        cache.current[range] = merged;
+        setChartData(merged);
       } catch (err) {
         console.error("useLiveChart history fetch error:", err);
         if (!cancelled) setChartData([]);
@@ -226,6 +279,42 @@ const useLiveChart = (symbol, initialRange = "1Min", chartMode = "line") => {
     return () => { cancelled = true; };
   }, [symbol, range]);
 
+  // ── Effect B2: periodically refresh long OHLC from API (fills aggregation gaps)
+  useEffect(() => {
+    if (!symbol || !range) return undefined;
+    if (SHORT_TERM_RANGES.has(range)) return undefined;
+
+    const windowMs = OHLC_WINDOW_MS[range];
+    if (!(range in OHLC_WINDOW_MS)) return undefined;
+
+    let cancelled = false;
+
+    const refreshHistory = async () => {
+      try {
+        const raw = await fetchRangeHistory(symbol, range);
+        if (cancelled) return;
+        const fetched = filterByWindow(mapOhlcToChart(raw), windowMs);
+        const bucketMs = OHLC_BUCKET_MS[range];
+        const { price: livePrice, timestamp: liveTs } = latestLiveRef.current;
+        const merged = livePrice != null && bucketMs
+          ? applyLiveTickToOhlcCandles(fetched, livePrice, liveTs, bucketMs, windowMs)
+          : fetched;
+        cache.current[range] = merged;
+        if (rangeRef.current === range) {
+          setChartData(merged);
+        }
+      } catch (err) {
+        console.warn("useLiveChart periodic refresh error:", err);
+      }
+    };
+
+    const intervalId = setInterval(refreshHistory, LONG_OHLC_REFRESH_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+    };
+  }, [symbol, range]);
+
   // ── Effect C: seed master caches from live-context on mount / symbol change ─
   // Also resets all per-symbol state so switching coins is clean.
   useEffect(() => {
@@ -234,6 +323,7 @@ const useLiveChart = (symbol, initialRange = "1Min", chartMode = "line") => {
     // Full reset whenever the symbol changes.
     cache.current          = { ...EMPTY_CACHE };
     lastLiveKeyRef.current = null;
+    latestLiveRef.current  = { price: null, timestamp: null };
 
     // Show a spinner while the first live-context payload is in flight, but
     // only if the current range is a short-term one (OHLC Effect B manages its
@@ -281,6 +371,7 @@ const useLiveChart = (symbol, initialRange = "1Min", chartMode = "line") => {
     if (price == null || Number.isNaN(price)) return;
 
     const timestamp = getLiveTickTimestampMs(liveTick);
+    latestLiveRef.current = { price, timestamp };
     const liveKey   = `${timestamp}|${price}`;
     if (lastLiveKeyRef.current === liveKey) return;
     lastLiveKeyRef.current = liveKey;
@@ -322,18 +413,20 @@ const useLiveChart = (symbol, initialRange = "1Min", chartMode = "line") => {
       ];
     }
 
-    // ── Long OHLC ranges: wiggle the last candle's close / high / low ─────────
+    // ── Long OHLC ranges: update active bucket or append when time advances ───
     LIVE_OHLC_RANGES.forEach((ohlcRange) => {
       const candles = cache.current[ohlcRange];
       if (!candles || candles.length === 0) return;
-      const last        = candles[candles.length - 1];
-      const updatedHigh = Math.max(last.high, price);
-      const updatedLow  = Math.min(last.low,  price);
-      if (price === last.close && updatedHigh === last.high && updatedLow === last.low) return;
-      cache.current[ohlcRange] = [
-        ...candles.slice(0, -1),
-        { ...last, close: price, high: updatedHigh, low: updatedLow },
-      ];
+      const bucketMs = OHLC_BUCKET_MS[ohlcRange];
+      const windowMs = OHLC_WINDOW_MS[ohlcRange];
+      if (!bucketMs) return;
+      cache.current[ohlcRange] = applyLiveTickToOhlcCandles(
+        candles,
+        price,
+        timestamp,
+        bucketMs,
+        windowMs,
+      );
     });
 
     // ── Drive a re-render for the currently visible range ─────────────────────

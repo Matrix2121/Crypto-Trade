@@ -9,8 +9,6 @@ const LandingPage = () => {
   const { setUser } = useContext(AppContext);
 
   const handleGoogleSuccess = async (credentialResponse) => {
-    console.log("1. Google handed React this Token:", credentialResponse.credential);
-
     try {
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/auth/google`, {
         method: 'POST',

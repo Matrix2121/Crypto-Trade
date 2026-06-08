@@ -76,7 +76,8 @@ public class ChartDataService {
                         o.getOpen(),
                         o.getHigh(),
                         o.getLow(),
-                        o.getClose()))
+                        o.getClose(),
+                        o.getVolume()))
                 .toList();
     }
 }
