@@ -2,28 +2,50 @@ version: '3.8'
 
 services:
   db:
-    image: postgres:15-alpine
+    image: pgvector/pgvector:pg15
     environment:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./backend/src/main/resources/db/init_pgvector.sql:/docker-entrypoint-initdb.d/01_pgvector.sql
+      - ./backend/src/main/resources/db/ml_schema.sql:/docker-entrypoint-initdb.d/02_ml_schema.sql
+    restart: unless-stopped
+
+  ml-service:
+    build: ./ml-service
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - LLM_PROVIDER=${LLM_PROVIDER:-mock}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - PREDICTION_ASSETS=${PREDICTION_ASSETS:-BTC/USD,ETH/USD,SOL/USD,LINK/USD}
+      - MIN_RAG_EVENTS=${MIN_RAG_EVENTS:-500}
+    depends_on:
+      - db
+    ports:
+      - "8000:8000"
     restart: unless-stopped
 
   backend:
     build: ./backend
     environment:
       - SPRING_PROFILES_ACTIVE=prod
-      - DB_HOST=${DB_HOST}
-      - DB_PORT=${DB_PORT}
+      - DB_HOST=${DB_HOST:-db}
+      - DB_PORT=${DB_PORT:-5432}
       - DB_NAME=${DB_NAME}
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
       - JWT_SECRET=${JWT_SECRET}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - ML_SERVICE_URL=${ML_SERVICE_URL:-http://ml-service:8000}
     depends_on:
       - db
+      - ml-service
     restart: unless-stopped
 
   frontend:

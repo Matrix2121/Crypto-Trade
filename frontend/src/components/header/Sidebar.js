@@ -12,6 +12,7 @@ const MAIN_NAV = { to: "/market", label: "Market", icon: "📈" };
 const OTHER_NAV = [
   { to: "/portfolio", label: "Portfolio", icon: "💼" },
   { to: "/transactions", label: "Transactions", icon: "🧾" },
+  { to: "/backtesting", label: "Backtesting", icon: "📊" },
 ];
 
 function SidebarCryptoLink({ code, isFavorite, isActive, isExpanded, onNavigate }) {

@@ -4,5 +4,6 @@ import java.math.BigDecimal;
 
 public record TradeRequestDto(
         String cryptoCode,
-        BigDecimal cryptoAmount) {
+        BigDecimal cryptoAmount,
+        BigDecimal fiatAmount) {
 }

@@ -1,5 +1,10 @@
 const DEFAULT_START_BALANCE = 10000;
 
+function toNumber(value, fallback = 0) {
+  const parsed = Number(value);
+  return Number.isNaN(parsed) ? fallback : parsed;
+}
+
 function formatChartLabel(tradeTimestamp) {
   return new Date(tradeTimestamp).toLocaleString(undefined, {
     month: "short",
@@ -20,7 +25,7 @@ export function buildBalanceChartData(transactions, currentBalance) {
 
   const hasCurrentBalance = currentBalance?.balance != null;
   const current = hasCurrentBalance
-    ? Number(currentBalance.balance)
+    ? toNumber(currentBalance.balance, DEFAULT_START_BALANCE)
     : DEFAULT_START_BALANCE;
 
   if (sorted.length === 0) {
@@ -44,7 +49,7 @@ export function buildBalanceChartData(transactions, currentBalance) {
 
     for (let i = sorted.length - 1; i >= 0; i -= 1) {
       const tx = sorted[i];
-      const amount = Number(tx.localCurrencyAmount);
+      const amount = toNumber(tx.localCurrencyAmount);
 
       txPoints.unshift({
         id: tx.id,
@@ -80,7 +85,7 @@ export function buildBalanceChartData(transactions, currentBalance) {
   // Balance not loaded yet — walk forward from the default starting balance.
   let running = DEFAULT_START_BALANCE;
   const txPoints = sorted.map((tx) => {
-    const amount = Number(tx.localCurrencyAmount);
+    const amount = toNumber(tx.localCurrencyAmount);
     running = tx.isPurchase ? running - amount : running + amount;
     return {
       id: tx.id,

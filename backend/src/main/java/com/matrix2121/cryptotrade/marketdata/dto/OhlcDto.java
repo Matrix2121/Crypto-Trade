@@ -7,5 +7,15 @@ public record OhlcDto(
         BigDecimal open,
         BigDecimal high,
         BigDecimal low,
-        BigDecimal close) {
+        BigDecimal close,
+        BigDecimal volume) {
+
+    public OhlcDto(
+            Long timestamp,
+            BigDecimal open,
+            BigDecimal high,
+            BigDecimal low,
+            BigDecimal close) {
+        this(timestamp, open, high, low, close, BigDecimal.ZERO);
+    }
 }

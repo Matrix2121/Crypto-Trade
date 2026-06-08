@@ -64,6 +64,10 @@
   color: var(--color-text-secondary);
 }
 
+.admin-hint-block {
+  margin: 0 0 0.75rem;
+}
+
 .admin-btn {
   border: none;
   border-radius: 10px;

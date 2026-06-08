@@ -1,0 +1,152 @@
+:root {
+  --prediction-ml-hourly: #22c55e;
+  --prediction-ml-daily: #3b82f6;
+  --prediction-context-aware: #a855f7;
+}
+
+.prediction-panel {
+  margin-top: 1rem;
+  padding: 1rem 1.25rem;
+  background: var(--color-bg-panel, #1a1d24);
+  border: 1px solid var(--color-border, #2a2f3a);
+  border-radius: 12px;
+}
+
+.prediction-panel.loading,
+.prediction-panel.empty,
+.prediction-panel.error {
+  color: var(--color-text-muted, #9ca3af);
+  font-size: 0.9rem;
+}
+
+.prediction-horizon-section {
+  margin-bottom: 1.25rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--color-border, #2a2f3a);
+}
+
+.prediction-horizons-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 2fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.prediction-horizon-group {
+  min-width: 0;
+}
+
+.prediction-horizon-title {
+  margin: 0 0 0.15rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.prediction-horizon-subtitle {
+  margin: 0 0 0.75rem;
+  font-size: 0.8rem;
+  color: var(--color-text-muted, #9ca3af);
+}
+
+.prediction-forecasts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.forecast-card {
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.forecast-card.ml-1h {
+  border-left: 3px dashed var(--prediction-ml-hourly);
+}
+
+.forecast-card.ml {
+  border-left: 3px dashed var(--prediction-ml-daily);
+}
+
+.forecast-card.context-aware {
+  border-left: 3px dashed var(--prediction-context-aware);
+}
+
+.forecast-card h4 {
+  margin: 0 0 0.5rem;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+.forecast-price {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.forecast-ci {
+  margin: 0.25rem 0 0;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.prediction-reasoning h4,
+.prediction-context h4,
+.prediction-rag h4 {
+  margin: 0.75rem 0 0.35rem;
+  font-size: 0.85rem;
+}
+
+.prediction-reasoning p,
+.context-headline {
+  margin: 0.25rem 0;
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.context-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.context-tags span,
+.source-tag {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.rag-precedent-item {
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--color-border, #2a2f3a);
+}
+
+.rag-precedent-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+}
+
+.rag-summary {
+  margin: 0.25rem 0;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.rag-outcome.positive { color: #22c55e; }
+.rag-outcome.negative { color: #ef4444; }
+
+@media (max-width: 640px) {
+  .prediction-horizons-row {
+    grid-template-columns: 1fr;
+  }
+
+  .prediction-forecasts {
+    grid-template-columns: 1fr;
+  }
+}

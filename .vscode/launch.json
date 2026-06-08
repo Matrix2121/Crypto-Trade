@@ -13,7 +13,8 @@
               "DB_HOST": "localhost",
               "DB_PORT": "5433",
               "JWT_SECRET": "change-me-change-me-change-me-change-me-change-me-change-me-32bytes-min",
-              "GOOGLE_CLIENT_ID": "569243080322-gcbva79oge5qrbqog892f3uc3554o9qk.apps.googleusercontent.com"
+              "GOOGLE_CLIENT_ID": "569243080322-gcbva79oge5qrbqog892f3uc3554o9qk.apps.googleusercontent.com",
+              "ML_SERVICE_URL":"http://localhost:8000"
           }
       }
   ]

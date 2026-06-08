@@ -15,6 +15,35 @@
   font-weight: 600;
 }
 
+.transactions-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding: 0.75rem 1rem;
+  background: var(--color-bg-panel);
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+}
+
+.transactions-filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.transactions-filters select,
+.transactions-filters input {
+  padding: 0.35rem 0.5rem;
+  background: var(--color-bg-page);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: inherit;
+  font-size: 0.875rem;
+}
+
 .transactions-empty {
   color: var(--color-text-muted);
   text-align: center;

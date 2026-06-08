@@ -38,7 +38,7 @@ public class MarketStatsEnrichmentService {
         long targetTimestamp = System.currentTimeMillis() - MS_24H;
         BigDecimal reference = referencePriceAt(symbol, targetTimestamp, "1h");
         if (reference == null) {
-            reference = referencePriceAt(symbol, targetTimestamp, "5m");
+            reference = referencePriceAt(symbol, targetTimestamp, "1m");
         }
         if (reference == null) {
             reference = referencePriceAt(symbol, targetTimestamp, "1d");
@@ -60,7 +60,7 @@ public class MarketStatsEnrichmentService {
         if (bid != null && ask != null) {
             return bid.add(ask).divide(BigDecimal.valueOf(2), 8, RoundingMode.HALF_UP);
         }
-        return latestClose(symbol, "5m")
+        return latestClose(symbol, "1m")
                 .or(() -> latestClose(symbol, "1h"))
                 .orElse(null);
     }

@@ -1,8 +1,8 @@
-import { useState, useContext } from "react";
+import { useMemo, useState, useContext } from "react";
 import { AppContext } from "../../context/AppContext";
 import useTransactions from "../../hooks/useTransactions";
 import { formatBalance, formatBalanceUsd } from "../../utils/formatBalance";
-import { getCryptoIconPath } from "../../utils/getCryptoIconPath";
+import { getCryptoIconPath, handleCryptoIconError } from "../../utils/getCryptoIconPath";
 import "./Transactions.css";
 
 function TransactionDetailRow({ label, value, valueClassName }) {
@@ -39,11 +39,7 @@ function TransactionDetailsPanel({ transaction, onClose }) {
           alt={transaction.cryptoCode}
           width={48}
           height={48}
-          onError={(e) => {
-            e.target.onerror = null;
-            e.target.src =
-              "https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/32/icon/generic.png";
-          }}
+          onError={handleCryptoIconError}
         />
         <div className="transaction-details-hero-text">
           <strong>{transaction.cryptoCode}</strong>
@@ -84,8 +80,29 @@ function TransactionDetailsPanel({ transaction, onClose }) {
 const Transactions = () => {
   const { transactions } = useContext(AppContext);
   const [selectedId, setSelectedId] = useState(null);
+  const [filterAsset, setFilterAsset] = useState("");
+  const [filterType, setFilterType] = useState("all");
+  const [filterFrom, setFilterFrom] = useState("");
+  const [filterTo, setFilterTo] = useState("");
 
   useTransactions();
+
+  const assetOptions = useMemo(() => {
+    const codes = [...new Set(transactions.map((t) => t.cryptoCode))].sort();
+    return codes;
+  }, [transactions]);
+
+  const filtered = useMemo(() => {
+    return [...transactions].reverse().filter((tx) => {
+      if (filterAsset && tx.cryptoCode !== filterAsset) return false;
+      if (filterType === "buy" && !tx.isPurchase) return false;
+      if (filterType === "sell" && tx.isPurchase) return false;
+      const ts = new Date(tx.tradeTimestamp).getTime();
+      if (filterFrom && ts < new Date(filterFrom).getTime()) return false;
+      if (filterTo && ts > new Date(filterTo).getTime() + 86400000) return false;
+      return true;
+    });
+  }, [transactions, filterAsset, filterType, filterFrom, filterTo]);
 
   const selected = transactions.find((tx) => tx.id === selectedId) ?? null;
 
@@ -97,13 +114,41 @@ const Transactions = () => {
     <div className="transactions-page">
       <h2>Transaction History</h2>
 
+      <div className="transactions-filters">
+        <label>
+          Asset
+          <select value={filterAsset} onChange={(e) => setFilterAsset(e.target.value)}>
+            <option value="">All</option>
+            {assetOptions.map((code) => (
+              <option key={code} value={code}>{code}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Type
+          <select value={filterType} onChange={(e) => setFilterType(e.target.value)}>
+            <option value="all">All</option>
+            <option value="buy">Buy</option>
+            <option value="sell">Sell</option>
+          </select>
+        </label>
+        <label>
+          From
+          <input type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)} />
+        </label>
+        <label>
+          To
+          <input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)} />
+        </label>
+      </div>
+
       <div className="transactions-container">
         <div className="transactions-list-section">
-          {transactions.length === 0 ? (
-            <p className="transactions-empty">No transactions yet.</p>
+          {filtered.length === 0 ? (
+            <p className="transactions-empty">No transactions match filters.</p>
           ) : (
             <ul className="transaction-list">
-              {[...transactions].reverse().map((tx) => {
+              {filtered.map((tx) => {
                 const isBuy = tx.isPurchase;
                 return (
                   <li

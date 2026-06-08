@@ -42,14 +42,14 @@ public class CryptoPricesContext {
 
     public static BigDecimal getBid(String crypto) {
         if (!bidMap.containsKey(crypto)) {
-            throw new CryptoNameException("This crypto is not avaliable!");
+            throw new CryptoNameException("This crypto is not available!");
         }
         return bidMap.get(crypto);
     }
 
     public static BigDecimal getAsk(String crypto) {
         if (!askMap.containsKey(crypto)) {
-            throw new CryptoNameException("This crypto is not avaliable!");
+            throw new CryptoNameException("This crypto is not available!");
         }
         return askMap.get(crypto);
     }

@@ -1,10 +1,19 @@
 import React, { useContext, useEffect, useMemo, useState } from "react";
 import { AppContext } from "../../context/AppContext";
+import usePortfolioAnalytics from "../../hooks/usePortfolioAnalytics";
 import useBalance from "../../hooks/useBalance";
 import useTransactions from "../../hooks/useTransactions";
+import useAssets from "../../hooks/useAssets";
+import usePrices from "../../hooks/usePrices";
+import useSell from "../../hooks/useSell";
 import useReset from "../../hooks/useReset";
-import { formatBalance, formatBalanceUsd } from "../../utils/formatBalance";
-import { getCryptoIconPath } from "../../utils/getCryptoIconPath";
+import FlashPrice from "../../components/FlashPrice";
+import {
+  formatBalance,
+  formatBalanceUsd,
+  formatCryptoAmount,
+} from "../../utils/formatBalance";
+import { getCryptoIconPath, handleCryptoIconError } from "../../utils/getCryptoIconPath";
 import { buildBalanceChartData } from "../../utils/buildBalanceChartData";
 import {
   LineChart,
@@ -14,56 +23,22 @@ import {
   Tooltip,
   ResponsiveContainer,
   ReferenceLine,
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+  CartesianGrid,
 } from "recharts";
 import "./Portfolio.css";
 
-function TransactionDot({ cx, cy, payload, selectedId, hoveredId }) {
+function TransactionDot({ cx, cy, payload }) {
   if (cx == null || cy == null || !payload?.isTransaction) {
     return null;
   }
 
-  const txId = payload.id;
-  const isSelected = selectedId === txId;
-  const isHovered = hoveredId === txId;
   const isBuy = payload.transaction?.isPurchase;
   const fill = isBuy ? "var(--color-buy)" : "var(--color-sell)";
-
-  if (isSelected) {
-    return (
-      <g>
-        <circle
-          cx={cx}
-          cy={cy}
-          r={12}
-          fill="none"
-          stroke="var(--color-accent-blue)"
-          strokeWidth={2}
-          opacity={0.45}
-        />
-        <circle
-          cx={cx}
-          cy={cy}
-          r={8}
-          fill={fill}
-          stroke="var(--color-text-primary)"
-          strokeWidth={2.5}
-        />
-      </g>
-    );
-  }
-
-  if (isHovered) {
-    return (
-      <circle
-        cx={cx}
-        cy={cy}
-        r={7}
-        fill={fill}
-        stroke="var(--color-accent-blue)"
-        strokeWidth={2.5}
-      />
-    );
-  }
 
   return (
     <circle
@@ -131,61 +106,177 @@ function BalanceTooltip({ active, payload }) {
   );
 }
 
-function formatBalanceTick(value) {
-  return formatBalanceUsd(value);
+function formatChartBalanceTick(value) {
+  const num = Number(value);
+  if (Number.isNaN(num)) return "$0";
+  if (num >= 1_000_000) {
+    return `$${(num / 1_000_000).toFixed(1)}M`;
+  }
+  if (num >= 1_000) {
+    return `$${(num / 1_000).toFixed(num >= 10_000 ? 0 : 1)}k`;
+  }
+  return `$${num.toFixed(0)}`;
 }
 
+function formatSellPrice(value) {
+  if (value == null || Number.isNaN(Number(value))) return "—";
+  const num = Number(value);
+  if (num >= 1000) {
+    return num.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  }
+  if (num >= 1) return num.toFixed(4);
+  return num.toFixed(6);
+}
+
+function computeYDomain(points) {
+  const values = (points || [])
+    .map((point) => Number(point.balance))
+    .filter((value) => !Number.isNaN(value));
+
+  if (values.length === 0) {
+    return [0, 10000];
+  }
+
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = max - min;
+  const padding = span > 0 ? span * 0.08 : Math.max(max * 0.05, 100);
+
+  return [Math.max(0, min - padding), max + padding];
+}
+
+const ALLOCATION_COLORS = ["#3b82f6", "#22c55e", "#f59e0b", "#a855f7", "#ef4444", "#06b6d4"];
+
 const Portfolio = () => {
-  const { balance, transactions, doReset } = useContext(AppContext);
+  const { user, balance, assets, transactions, doReset } = useContext(AppContext);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
-  const [hoveredTxId, setHoveredTxId] = useState(null);
-  const [selectedTxId, setSelectedTxId] = useState(null);
+  const [sellingCode, setSellingCode] = useState(null);
+  const [sellingAll, setSellingAll] = useState(false);
+  const [holdingsMessage, setHoldingsMessage] = useState(null);
 
   useBalance();
   useTransactions();
+  useAssets();
   useReset();
+  const prices = usePrices();
+  const sell = useSell();
+  const { analytics, fetchAnalytics } = usePortfolioAnalytics();
+
+  useEffect(() => {
+    if (user?.id) fetchAnalytics(user.id);
+  }, [user?.id, fetchAnalytics, assets, balance, transactions]);
 
   const { startBalance, points: chartData } = useMemo(
     () => buildBalanceChartData(transactions, balance),
     [transactions, balance]
   );
 
-  const transactionPoints = useMemo(
-    () => chartData.filter((point) => point.isTransaction),
-    [chartData]
-  );
+  const yDomain = useMemo(() => computeYDomain(chartData), [chartData]);
 
-  const listItems = useMemo(
-    () => [...transactionPoints].reverse(),
-    [transactionPoints]
-  );
+  const usdBalance = useMemo(() => {
+    if (balance?.balance == null) return 0;
+    const parsed = Number(balance.balance);
+    return Number.isNaN(parsed) ? 0 : parsed;
+  }, [balance]);
 
-  useEffect(() => {
-    if (selectedTxId == null) return;
-    const stillExists = transactionPoints.some((point) => point.id === selectedTxId);
-    if (!stillExists) {
-      setSelectedTxId(null);
-    }
-  }, [transactionPoints, selectedTxId]);
+  const holdings = useMemo(() => {
+    return (assets || [])
+      .map((asset) => {
+        const amount = Number(asset.cryptoAmount);
+        const tick = prices.find((price) => price.symbol === asset.cryptoCode);
+        const bid = tick?.bid != null ? Number(tick.bid) : null;
+        const usdValue =
+          bid != null && !Number.isNaN(amount) ? amount * bid : null;
 
-  const handleSelectTx = (txId) => {
-    setSelectedTxId((prev) => (prev === txId ? null : txId));
-  };
+        return {
+          cryptoCode: asset.cryptoCode,
+          amount: Number.isNaN(amount) ? 0 : amount,
+          bid,
+          previousBid: tick?.previousBid ?? null,
+          usdValue,
+        };
+      })
+      .filter((holding) => holding.amount > 0)
+      .sort((a, b) => a.cryptoCode.localeCompare(b.cryptoCode));
+  }, [assets, prices]);
+
+  const totalBalance = useMemo(() => {
+    const cryptoTotal = holdings.reduce(
+      (sum, holding) => sum + (holding.usdValue ?? 0),
+      0
+    );
+    return usdBalance + cryptoTotal;
+  }, [usdBalance, holdings]);
+
+  const isSelling = sellingCode != null || sellingAll;
 
   const handleConfirmReset = () => {
-    setHoveredTxId(null);
-    setSelectedTxId(null);
+    setHoldingsMessage(null);
     doReset();
     setShowResetConfirm(false);
   };
 
-  const renderTransactionDot = (props) => (
-    <TransactionDot
-      {...props}
-      selectedId={selectedTxId}
-      hoveredId={hoveredTxId}
-    />
-  );
+  const handleSellOne = async (holding) => {
+    if (holding.bid == null) {
+      setHoldingsMessage({
+        type: "error",
+        text: `Sell price unavailable for ${holding.cryptoCode}`,
+      });
+      return;
+    }
+
+    setSellingCode(holding.cryptoCode);
+    setHoldingsMessage(null);
+
+    try {
+      await sell(holding.cryptoCode, {
+        cryptoAmount: formatCryptoAmount(holding.amount),
+      });
+      setHoldingsMessage({
+        type: "success",
+        text: `Sold all ${holding.cryptoCode}`,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Sell failed";
+      setHoldingsMessage({ type: "error", text: message });
+    } finally {
+      setSellingCode(null);
+    }
+  };
+
+  const handleSellAll = async () => {
+    const sellable = holdings.filter((holding) => holding.bid != null);
+    if (sellable.length === 0) {
+      setHoldingsMessage({
+        type: "error",
+        text: "No crypto holdings available to sell",
+      });
+      return;
+    }
+
+    setSellingAll(true);
+    setHoldingsMessage(null);
+
+    try {
+      for (const holding of sellable) {
+        await sell(holding.cryptoCode, {
+          cryptoAmount: formatCryptoAmount(holding.amount),
+        });
+      }
+      setHoldingsMessage({
+        type: "success",
+        text: "Sold all crypto holdings",
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Sell failed";
+      setHoldingsMessage({ type: "error", text: message });
+    } finally {
+      setSellingAll(false);
+    }
+  };
 
   return (
     <div className="portfolio-page">
@@ -210,7 +301,7 @@ const Portfolio = () => {
           <ResponsiveContainer width="100%" height="100%">
             <LineChart
               data={chartData}
-              margin={{ top: 16, right: 16, left: 0, bottom: 0 }}
+              margin={{ top: 16, right: 16, left: 4, bottom: 0 }}
             >
               <XAxis
                 dataKey="label"
@@ -220,12 +311,14 @@ const Portfolio = () => {
                 interval="preserveStartEnd"
               />
               <YAxis
+                type="number"
                 tickLine={false}
                 axisLine={false}
-                width={52}
-                tickFormatter={formatBalanceTick}
+                width={56}
+                tickFormatter={formatChartBalanceTick}
                 tick={{ fill: "var(--color-text-muted)", fontSize: 11 }}
-                domain={["auto", "auto"]}
+                domain={yDomain}
+                allowDataOverflow
               />
               <Tooltip content={<BalanceTooltip />} />
               <ReferenceLine
@@ -245,7 +338,7 @@ const Portfolio = () => {
                 dataKey="balance"
                 stroke="var(--color-accent-blue)"
                 strokeWidth={2}
-                dot={renderTransactionDot}
+                dot={<TransactionDot />}
                 activeDot={false}
               />
             </LineChart>
@@ -253,64 +346,171 @@ const Portfolio = () => {
         </div>
       </div>
 
-      <div className="portfolio-tx-section">
-        <div className="portfolio-section-title">Transactions</div>
-        {listItems.length === 0 ? (
-          <p className="portfolio-tx-empty">No transactions yet.</p>
-        ) : (
-          <ul className="portfolio-tx-list">
-            {listItems.map((point) => {
-              const tx = point.transaction;
-              const isSelected = selectedTxId === point.id;
-              const isHovered = hoveredTxId === point.id;
-              const itemClass = [
-                "portfolio-tx-item",
-                isSelected ? "selected" : "",
-                isHovered && !isSelected ? "hovered" : "",
-              ]
-                .filter(Boolean)
-                .join(" ");
+      <div className="portfolio-holdings">
+        <div className="portfolio-holdings-header">
+          <div className="portfolio-section-title">Holdings</div>
+          {holdings.length > 0 && (
+            <button
+              type="button"
+              className="portfolio-sell-all-btn"
+              onClick={handleSellAll}
+              disabled={isSelling}
+            >
+              {sellingAll ? "Selling…" : "Sell all crypto"}
+            </button>
+          )}
+        </div>
 
-              return (
-                <li key={point.id}>
-                  <button
-                    type="button"
-                    className={itemClass}
-                    onMouseEnter={() => setHoveredTxId(point.id)}
-                    onMouseLeave={() => setHoveredTxId(null)}
-                    onClick={() => handleSelectTx(point.id)}
-                    aria-pressed={isSelected}
-                  >
-                    <img
-                      src={getCryptoIconPath(tx.cryptoCode)}
-                      alt={tx.cryptoCode}
-                      width={24}
-                      height={24}
-                      onError={(e) => {
-                        e.target.onerror = null;
-                        e.target.src =
-                          "https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/32/icon/generic.png";
-                      }}
-                    />
-                    <span className="portfolio-tx-item-main">
-                      <strong>{tx.cryptoCode}</strong>
-                      <span className={tx.isPurchase ? "tx-buy" : "tx-sell"}>
-                        {tx.isPurchase ? "Buy" : "Sell"}
-                      </span>
-                    </span>
-                    <span className="portfolio-tx-item-meta">
-                      {formatBalanceUsd(tx.localCurrencyAmount)}
-                    </span>
-                    <span className="portfolio-tx-item-date">
-                      {new Date(tx.tradeTimestamp).toLocaleString()}
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+        <div className="portfolio-total-balance">
+          <span className="portfolio-total-balance-label">Total balance</span>
+          <strong className="portfolio-total-balance-value">
+            {formatBalanceUsd(totalBalance)}
+          </strong>
+        </div>
+
+        {holdingsMessage && (
+          <p
+            className={`portfolio-holdings-message portfolio-holdings-message-${holdingsMessage.type}`}
+            role="status"
+          >
+            {holdingsMessage.text}
+          </p>
         )}
+
+        <ul className="portfolio-holdings-list">
+          <li className="portfolio-holding-row portfolio-holding-usd">
+            <div className="portfolio-holding-main">
+              <span className="portfolio-holding-symbol">USD</span>
+              <span className="portfolio-holding-detail">Cash balance</span>
+            </div>
+            <strong className="portfolio-holding-value">
+              {formatBalanceUsd(usdBalance)}
+            </strong>
+          </li>
+
+          {holdings.map((holding) => {
+            const baseAsset = holding.cryptoCode.split("/")[0];
+            const isRowSelling = sellingCode === holding.cryptoCode;
+
+            return (
+              <li key={holding.cryptoCode} className="portfolio-holding-row">
+                <div className="portfolio-holding-main">
+                  <img
+                    src={getCryptoIconPath(holding.cryptoCode)}
+                    alt={holding.cryptoCode}
+                    width={28}
+                    height={28}
+                    onError={handleCryptoIconError}
+                  />
+                  <div className="portfolio-holding-text">
+                    <span className="portfolio-holding-symbol">
+                      {holding.cryptoCode}
+                    </span>
+                    <span className="portfolio-holding-detail">
+                      {formatBalance(holding.amount)} {baseAsset}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="portfolio-holding-price">
+                  <span className="portfolio-holding-price-label">
+                    Sell price
+                  </span>
+                  <span className="portfolio-holding-price-value">
+                    <FlashPrice
+                      value={holding.bid}
+                      previousValue={holding.previousBid}
+                      showChange
+                      changeLayout="inline"
+                    >
+                      {formatSellPrice(holding.bid)}
+                    </FlashPrice>
+                  </span>
+                </div>
+
+                <strong className="portfolio-holding-value">
+                  {holding.usdValue != null
+                    ? formatBalanceUsd(holding.usdValue)
+                    : "—"}
+                </strong>
+
+                <button
+                  type="button"
+                  className="portfolio-sell-one-btn"
+                  onClick={() => handleSellOne(holding)}
+                  disabled={isSelling || holding.bid == null}
+                >
+                  {isRowSelling ? "Selling…" : "Sell all"}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
       </div>
+
+      {analytics && (
+        <div className="portfolio-analytics">
+          <div className="portfolio-analytics-summary">
+            <div>
+              <span className="pa-label">Total portfolio</span>
+              <strong>{formatBalanceUsd(analytics.totalPortfolioValue)}</strong>
+            </div>
+            <div>
+              <span className="pa-label">Unrealized P&amp;L</span>
+              <strong className={Number(analytics.unrealizedPnl) >= 0 ? "positive" : "negative"}>
+                {formatBalanceUsd(analytics.unrealizedPnl)}
+              </strong>
+            </div>
+            <div>
+              <span className="pa-label">Realized P&amp;L</span>
+              <strong className={Number(analytics.realizedPnl) >= 0 ? "positive" : "negative"}>
+                {formatBalanceUsd(analytics.realizedPnl)}
+              </strong>
+            </div>
+          </div>
+
+          <div className="portfolio-charts-row">
+            <div className="portfolio-chart-card">
+              <h3>Asset Allocation</h3>
+              <ResponsiveContainer width="100%" height={200}>
+                <PieChart>
+                  <Pie
+                    data={(analytics.allocation || []).filter((s) => Number(s.valueUsd) > 0)}
+                    dataKey="valueUsd"
+                    nameKey="label"
+                    innerRadius={50}
+                    outerRadius={80}
+                    paddingAngle={2}
+                  >
+                    {(analytics.allocation || []).map((_, i) => (
+                      <Cell key={i} fill={ALLOCATION_COLORS[i % ALLOCATION_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(v) => formatBalanceUsd(v)} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="portfolio-chart-card">
+              <h3>P&amp;L by Asset</h3>
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart
+                  data={(analytics.holdings || []).map((h) => ({
+                    name: h.cryptoCode,
+                    pnl: Number(h.unrealizedPnl || 0),
+                  }))}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                  <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                  <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `$${v}`} />
+                  <Tooltip formatter={(v) => formatBalanceUsd(v)} />
+                  <Bar dataKey="pnl" fill="#3b82f6" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showResetConfirm && (
         <div

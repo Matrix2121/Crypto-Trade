@@ -29,7 +29,7 @@ public class ChartDataService {
 
     public boolean isKnownRange(String range) {
         return switch (range) {
-            case "1Min", "5Min", "15Min", "1H", "1D", "1W", "1M", "3M", "1Y", "5Y" -> true;
+            case "1Min", "5Min", "15Min", "1H", "1D", "1W", "1M", "3M", "1Y", "5Y", "ALL" -> true;
             default -> false;
         };
     }
@@ -42,13 +42,14 @@ public class ChartDataService {
             case "5Min"  -> toObjectList(fetchTicks(symbol, nowMs -  5L * 60_000L,    nowMs));
             case "15Min" -> toObjectList(fetchTicks(symbol, nowMs - 15L * 60_000L,    nowMs));
 
-            case "1H"  -> toObjectList(fetchOhlc(symbol, "5m",  nowMs - MS_PER_HOUR));
-            case "1D"  -> toObjectList(fetchOhlc(symbol, "5m",  nowMs - MS_PER_DAY));
-            case "1W"  -> toObjectList(fetchOhlc(symbol, "1h",  nowMs -  7L * MS_PER_DAY));
-            case "1M"  -> toObjectList(fetchOhlc(symbol, "4h",  nowMs - 30L * MS_PER_DAY));
-            case "3M"  -> toObjectList(fetchOhlc(symbol, "4h",  nowMs - 90L * MS_PER_DAY));
-            case "1Y"  -> toObjectList(fetchOhlc(symbol, "1d",  nowMs - 365L * MS_PER_DAY));
-            case "5Y"  -> toObjectList(fetchOhlc(symbol, "1d",  nowMs - 5L * 365 * MS_PER_DAY));
+            case "1H"  -> toObjectList(fetchOhlc(symbol, "1m",  nowMs - MS_PER_HOUR));
+            case "1D"  -> toObjectList(fetchOhlc(symbol, "30m", nowMs - MS_PER_DAY));
+            case "1W"  -> toObjectList(fetchOhlc(symbol, "2h",  nowMs -  7L * MS_PER_DAY));
+            case "1M"  -> toObjectList(fetchOhlc(symbol, "8h",  nowMs - 30L * MS_PER_DAY));
+            case "3M"  -> toObjectList(fetchOhlc(symbol, "1d",  nowMs - 90L * MS_PER_DAY));
+            case "1Y"  -> toObjectList(fetchOhlc(symbol, "5d",  nowMs - 365L * MS_PER_DAY));
+            case "5Y"  -> toObjectList(fetchOhlc(symbol, "1mo", nowMs - 5L * 365 * MS_PER_DAY));
+            case "ALL" -> toObjectList(fetchOhlc(symbol, "1mo", 0L));
 
             default -> {
                 log.warn("Unknown range requested: {}", range);
@@ -75,7 +76,8 @@ public class ChartDataService {
                         o.getOpen(),
                         o.getHigh(),
                         o.getLow(),
-                        o.getClose()))
+                        o.getClose(),
+                        o.getVolume()))
                 .toList();
     }
 }

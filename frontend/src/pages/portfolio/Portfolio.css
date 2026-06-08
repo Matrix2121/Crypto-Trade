@@ -54,7 +54,7 @@
   background: var(--color-bg-panel);
   border: 1px solid var(--color-border-default);
   border-radius: 12px;
-  padding: 10px 10px 6px 6px;
+  padding: 10px 10px 6px 2px;
 }
 
 .portfolio-chart-tooltip {
@@ -96,93 +96,178 @@
   font-size: 0.8rem !important;
 }
 
-.portfolio-chart-tooltip .tx-buy,
-.portfolio-tx-item .tx-buy {
+.portfolio-chart-tooltip .tx-buy {
   color: var(--color-buy-text);
   font-weight: 700;
 }
 
-.portfolio-chart-tooltip .tx-sell,
-.portfolio-tx-item .tx-sell {
+.portfolio-chart-tooltip .tx-sell {
   color: var(--color-sell-text);
   font-weight: 700;
 }
 
-.portfolio-tx-section {
+.portfolio-holdings {
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border-default);
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
+}
+
+.portfolio-holdings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.portfolio-holdings-header .portfolio-section-title {
   margin-bottom: 0;
 }
 
-.portfolio-tx-empty {
-  margin: 0;
-  color: var(--color-text-muted);
-  font-size: 0.95rem;
+.portfolio-total-balance {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  margin-bottom: 0.85rem;
+  border: 1px solid var(--color-border-default);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--color-accent-blue) 8%, var(--color-bg-page));
 }
 
-.portfolio-tx-list {
+.portfolio-total-balance-label {
+  color: var(--color-text-secondary);
+  font-weight: 600;
+}
+
+.portfolio-total-balance-value {
+  font-size: 1.35rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.portfolio-holdings-message {
+  margin: 0 0 0.85rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.portfolio-holdings-message-success {
+  color: var(--color-buy-text);
+  background: color-mix(in srgb, var(--color-buy) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-buy) 35%, transparent);
+}
+
+.portfolio-holdings-message-error {
+  color: var(--color-sell-text);
+  background: color-mix(in srgb, var(--color-sell) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-sell) 35%, transparent);
+}
+
+.portfolio-holdings-list {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) 180px minmax(96px, auto) auto;
+  column-gap: 0.75rem;
+  row-gap: 0.55rem;
 }
 
-.portfolio-tx-item {
-  width: 100%;
+.portfolio-holding-row {
   display: grid;
-  grid-template-columns: auto 1fr auto;
-  grid-template-rows: auto auto;
-  gap: 0.15rem 0.75rem;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
   align-items: center;
-  padding: 0.75rem 0.9rem;
+  padding: 0.8rem 0.9rem;
   border: 1px solid var(--color-border-default);
   border-radius: 10px;
-  background: var(--color-bg-panel);
-  color: var(--color-text-primary);
-  cursor: pointer;
-  text-align: left;
-  transition:
-    background-color 0.15s ease,
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
+  background: var(--color-bg-page);
 }
 
-.portfolio-tx-item img {
-  grid-row: 1 / span 2;
+.portfolio-holding-usd .portfolio-holding-value {
+  grid-column: 3;
 }
 
-.portfolio-tx-item-main {
+.portfolio-holding-main {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.65rem;
+  min-width: 0;
 }
 
-.portfolio-tx-item-meta {
+.portfolio-holding-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.portfolio-holding-symbol {
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.portfolio-holding-detail {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.portfolio-holding-price {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.portfolio-holding-price-label {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.portfolio-holding-price-value {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--color-text-soft);
 }
 
-.portfolio-tx-item-date {
-  grid-column: 2 / span 2;
-  font-size: 0.82rem;
-  color: var(--color-text-muted);
+.portfolio-holding-value {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-primary);
+  white-space: nowrap;
 }
 
-.portfolio-tx-item.hovered {
-  border-color: var(--color-accent-blue);
-  background: color-mix(in srgb, var(--color-accent-blue) 8%, var(--color-bg-panel));
-}
-
-.portfolio-tx-item.selected {
-  border-color: var(--color-accent-blue);
-  background: color-mix(in srgb, var(--color-accent-blue) 14%, var(--color-bg-panel));
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent-blue) 35%, transparent);
-}
-
-.portfolio-tx-item .tx-buy,
-.portfolio-tx-item .tx-sell {
+.portfolio-sell-one-btn,
+.portfolio-sell-all-btn {
+  border-radius: 8px;
+  padding: 0.45rem 0.75rem;
+  font-weight: 700;
   font-size: 0.85rem;
+  cursor: pointer;
+  border: 1px solid var(--color-sell-hover);
+  background: var(--color-sell);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+}
+
+.portfolio-sell-all-btn {
+  padding: 0.5rem 0.85rem;
+}
+
+.portfolio-sell-one-btn:hover:not(:disabled),
+.portfolio-sell-all-btn:hover:not(:disabled) {
+  background: var(--color-sell-hover);
+}
+
+.portfolio-sell-one-btn:disabled,
+.portfolio-sell-all-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .modal-overlay {
@@ -270,8 +355,33 @@
     height: 220px;
   }
 
-  .portfolio-tx-item {
-    padding: 0.85rem;
+  .portfolio-holdings-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .portfolio-sell-all-btn {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .portfolio-holdings-list {
+    grid-template-columns: 1fr;
+    column-gap: 0;
+  }
+
+  .portfolio-holding-row {
+    grid-column: auto;
+    grid-template-columns: 1fr;
+    gap: 0.55rem;
+  }
+
+  .portfolio-holding-usd .portfolio-holding-value {
+    grid-column: auto;
+  }
+
+  .portfolio-sell-one-btn {
+    width: 100%;
     min-height: 44px;
   }
 
@@ -282,5 +392,57 @@
   .modal-button {
     width: 100%;
     min-height: 44px;
+  }
+}
+
+.portfolio-analytics {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--color-border, #2a2f3a);
+}
+
+.portfolio-analytics-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.portfolio-analytics-summary .pa-label {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-bottom: 0.25rem;
+}
+
+.portfolio-analytics-summary strong {
+  font-size: 1.1rem;
+}
+
+.portfolio-analytics-summary .positive { color: #22c55e; }
+.portfolio-analytics-summary .negative { color: #ef4444; }
+
+.portfolio-charts-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.portfolio-chart-card {
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.portfolio-chart-card h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 768px) {
+  .portfolio-analytics-summary,
+  .portfolio-charts-row {
+    grid-template-columns: 1fr;
   }
 }
