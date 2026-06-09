@@ -1,1 +1,1 @@
-{"asset": "SOL/USD", "horizonHours": 1, "mae": 0.09005602840588073, "residual_std": 0.11916087724699706, "train_rows": 719}
+{"asset": "SOL/USD", "horizonHours": 1, "mae": 0.09482713116186185, "residual_std": 0.12423917686080747, "train_rows": 749}
