@@ -8,7 +8,7 @@ This guide covers training models locally, seeding RAG, and deploying to your VP
 |----------|----------|---------|
 | XGBoost models | `ml_service/model/artifacts/*_{1h,24h}.json` | Pre-trained 1h and 24h price forecasts (baked into Docker image) |
 | RAG seed data | `deploy/market_events_seed.sql` | 2,760 historical market events with embeddings |
-| ML schema | `backend/.../db/ml_schema.sql` | `predictions` + `market_events` tables (auto on fresh DB) |
+| DB schema | `backend/.../db/schema.sql` | All tables (app + ML); auto on fresh DB |
 
 ## Local training (already done on this machine)
 
@@ -88,21 +88,30 @@ ml-service/deploy/market_events_seed.sql
 
 ```bash
 git pull
-docker compose build
+docker compose build backend frontend ml-service
 docker compose up -d
 ```
 
-`docker-compose.yaml` now runs `ml_schema.sql` on **fresh** databases automatically.
+On every `docker compose up`, the **`db-migrate`** service (one-shot) will:
+
+1. Wait for Postgres to be healthy
+2. Check `schema_meta.version` and core tables (`users`, `predictions`, `market_events`, `ohlc_data`)
+3. If missing or outdated: **`pg_dump` backup** to `backups/pre-schema-v{N}-<timestamp>.dump`
+4. Apply `backend/src/main/resources/db/schema.sql` (additive / idempotent — does **not** wipe data)
+5. Exit; then `backend` and `ml-service` start
+
+Fresh volumes also get `schema.sql` from Postgres init (`docker-entrypoint-initdb.d`); `db-migrate` then sees version 1 and skips.
+
+Manual run (local Postgres on port 5433):
+
+```powershell
+.\scripts\db_migrate.ps1
+```
 
 ### Step 4 — Manual: import RAG seed (existing or fresh DB)
 
-If the database already existed before this deploy, run the schema + seed manually:
-
 ```bash
-# Apply ML tables (safe to re-run)
-docker compose exec -T db psql -U $DB_USER -d $DB_NAME < backend/src/main/resources/db/ml_schema.sql
-
-# Import pre-built RAG index
+# Import pre-built RAG index (schema already applied by db-migrate)
 docker compose exec -T db psql -U $DB_USER -d $DB_NAME < ml-service/deploy/market_events_seed.sql
 ```
 
@@ -164,9 +173,8 @@ Pre-trained models are **not** retrained unless artifact files are missing from 
 
 - [ ] Set production `.env` (DB, JWT, Google, LLM keys)
 - [ ] Commit & push trained `artifacts/*.json` + `market_events_seed.sql`
-- [ ] `docker compose build && docker compose up -d`
-- [ ] Import `ml_schema.sql` (if DB pre-dates this deploy)
-- [ ] Import `market_events_seed.sql` into Postgres
+- [ ] `docker compose build && docker compose up -d` (runs `db-migrate` automatically)
+- [ ] Import `market_events_seed.sql` into Postgres (or restore full `pg_dump`)
 - [ ] Confirm 1h OHLC with volume exists for all 4 assets
 - [ ] Hit `/health`, batch hourly/daily predict, `/rag/status`
 - [ ] (Optional) Set `LLM_PROVIDER=anthropic` + API key for real LLM tuning

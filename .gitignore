@@ -4,6 +4,11 @@ ml-service/.env
 # Keep trained model artifacts for deployment
 !ml-service/ml_service/model/artifacts/*.json
 
+# Python
 __pycache__/
 *.py[cod]
+*$py.class
+*.so
+.Python
 .venv/
+backups/
