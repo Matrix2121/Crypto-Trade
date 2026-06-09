@@ -159,6 +159,27 @@
   color: var(--color-sell);
 }
 
+.admin-badge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  background: color-mix(in srgb, var(--color-accent-blue) 20%, var(--color-bg-panel));
+  color: var(--color-text-primary);
+}
+
+.admin-badge-user {
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border-default);
+  font-weight: 600;
+}
+
+.admin-you-label {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+}
+
 @media (max-width: 768px) {
   .admin-page {
     margin: 0.75rem auto;
