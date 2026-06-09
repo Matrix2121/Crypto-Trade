@@ -7,6 +7,8 @@ import useBalance from "../../hooks/useBalance";
 import { getCryptoIconPath, handleCryptoIconError } from "../../utils/getCryptoIconPath";
 import "./Sidebar.css";
 
+const BRAND_LOGO = `${process.env.PUBLIC_URL}/logo.png`;
+
 const MAIN_NAV = { to: "/market", label: "Market", icon: "📈" };
 
 const OTHER_NAV = [
@@ -82,7 +84,16 @@ const Sidebar = ({ mobileOpen = false, onMobileClose }) => {
     >
       <div className="sidebar-top">
         <div className="sidebar-header">
-          <div className="sidebar-brand">{showLabels ? "Noq Trade" : ""}</div>
+          <div className="sidebar-brand">
+            <img
+              className="sidebar-brand-logo"
+              src={BRAND_LOGO}
+              alt=""
+              width={32}
+              height={32}
+            />
+            {showLabels && <span className="sidebar-brand-text">NoqTrade</span>}
+          </div>
           <button
             type="button"
             className="sidebar-toggle"
