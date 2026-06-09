@@ -9,9 +9,35 @@ services:
       - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./backend/src/main/resources/db/init_pgvector.sql:/docker-entrypoint-initdb.d/01_pgvector.sql
-      - ./backend/src/main/resources/db/ml_schema.sql:/docker-entrypoint-initdb.d/02_ml_schema.sql
+      - ./backend/src/main/resources/db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
     restart: unless-stopped
+
+  db-migrate:
+    image: pgvector/pgvector:pg15
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      SCHEMA_FILE: /schema.sql
+      VERSION_FILE: /schema.version
+      BACKUP_DIR: /backups
+    volumes:
+      - ./scripts/db_migrate.sh:/db_migrate.sh:ro
+      - ./backend/src/main/resources/db/schema.sql:/schema.sql:ro
+      - ./backend/src/main/resources/db/schema.version:/schema.version:ro
+      - ./backups:/backups
+    entrypoint: ["/bin/bash", "/db_migrate.sh"]
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
 
   ml-service:
     build: ./ml-service
@@ -26,7 +52,8 @@ services:
       - PREDICTION_ASSETS=${PREDICTION_ASSETS:-BTC/USD,ETH/USD,SOL/USD,LINK/USD}
       - MIN_RAG_EVENTS=${MIN_RAG_EVENTS:-500}
     depends_on:
-      - db
+      db-migrate:
+        condition: service_completed_successfully
     ports:
       - "8000:8000"
     restart: unless-stopped
@@ -44,8 +71,10 @@ services:
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - ML_SERVICE_URL=${ML_SERVICE_URL:-http://ml-service:8000}
     depends_on:
-      - db
-      - ml-service
+      db-migrate:
+        condition: service_completed_successfully
+      ml-service:
+        condition: service_started
     restart: unless-stopped
 
   frontend:

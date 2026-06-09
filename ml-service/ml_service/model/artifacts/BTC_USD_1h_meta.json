@@ -1,1 +1,1 @@
-{"asset": "BTC/USD", "horizonHours": 1, "mae": 53.48002697841691, "residual_std": 69.69779287790915, "train_rows": 695}
+{"asset": "BTC/USD", "horizonHours": 1, "mae": 168.35559211851424, "residual_std": 235.4997872441539, "train_rows": 3103}

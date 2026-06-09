@@ -1,1 +1,1 @@
-{"asset": "ETH/USD", "horizonHours": 24, "mae": 1.5935904316518545, "residual_std": 2.0964688894830603, "train_rows": 696}
+{"asset": "ETH/USD", "horizonHours": 24, "mae": 23.199538776321916, "residual_std": 30.698729873484623, "train_rows": 7248}
