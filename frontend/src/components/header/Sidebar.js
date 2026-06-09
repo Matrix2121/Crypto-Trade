@@ -82,7 +82,7 @@ const Sidebar = ({ mobileOpen = false, onMobileClose }) => {
     >
       <div className="sidebar-top">
         <div className="sidebar-header">
-          <div className="sidebar-brand">{showLabels ? "CryptoTrade" : ""}</div>
+          <div className="sidebar-brand">{showLabels ? "Noq Trade" : ""}</div>
           <button
             type="button"
             className="sidebar-toggle"

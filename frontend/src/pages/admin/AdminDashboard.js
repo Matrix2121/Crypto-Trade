@@ -25,9 +25,13 @@ function formatMarketCap(value) {
 const AdminDashboard = () => {
   const { user } = useContext(AppContext);
   const [trackedCryptos, setTrackedCryptos] = useState([]);
+  const [users, setUsers] = useState([]);
   const [newSymbol, setNewSymbol] = useState("");
   const [loading, setLoading] = useState(true);
+  const [usersLoading, setUsersLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [usersError, setUsersError] = useState(null);
+  const [updatingUserId, setUpdatingUserId] = useState(null);
   const [isSyncingData, setIsSyncingData] = useState(false);
   const [isSyncingStats, setIsSyncingStats] = useState(false);
   const [isRunningHourlyPredict, setIsRunningHourlyPredict] = useState(false);
@@ -54,11 +58,32 @@ const AdminDashboard = () => {
     }
   }, []);
 
+  const loadUsers = useCallback(async () => {
+    setUsersLoading(true);
+    setUsersError(null);
+    try {
+      const response = await fetch(`${apiUrl}/api/admin/users`, {
+        headers: authHeaders(),
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to load users (${response.status})`);
+      }
+      const data = await response.json();
+      setUsers(data);
+    } catch (err) {
+      console.error(err);
+      setUsersError("Could not load users.");
+    } finally {
+      setUsersLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (user?.isAdmin) {
       loadTrackedCryptos();
+      loadUsers();
     }
-  }, [user, loadTrackedCryptos]);
+  }, [user, loadTrackedCryptos, loadUsers]);
 
   if (!user?.isAdmin) {
     return <Navigate to="/market" replace />;
@@ -186,6 +211,43 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleSetAdmin = async (targetUser, grantAdmin) => {
+    const action = grantAdmin ? "grant admin to" : "revoke admin from";
+    if (
+      !window.confirm(
+        `${grantAdmin ? "Grant" : "Revoke"} admin access for ${targetUser.email}?`,
+      )
+    ) {
+      return;
+    }
+
+    setUpdatingUserId(targetUser.id);
+    setActionMessage(null);
+    try {
+      const response = await fetch(`${apiUrl}/api/admin/users/${targetUser.id}/admin`, {
+        method: "PATCH",
+        headers: authHeaders(),
+        body: JSON.stringify({ isAdmin: grantAdmin }),
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || `Failed to ${action} user (${response.status})`);
+      }
+      const updated = await response.json();
+      setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
+      setActionMessage(
+        grantAdmin
+          ? `${updated.email} is now an admin. They must log out and back in for access to apply.`
+          : `${updated.email} is no longer an admin.`,
+      );
+    } catch (err) {
+      console.error(err);
+      setActionMessage(err.message || `Failed to ${action} user.`);
+    } finally {
+      setUpdatingUserId(null);
+    }
+  };
+
   const handleSyncMarketStats = async () => {
     setIsSyncingStats(true);
     setActionMessage(null);
@@ -265,6 +327,72 @@ const AdminDashboard = () => {
             {isRunningDailyPredict ? "Running…" : "Run context-aware daily"}
           </button>
         </div>
+      </section>
+
+      <section className="admin-section">
+        <h3 className="admin-section-title">Administrators</h3>
+        <p className="admin-hint admin-hint-block">
+          Grant or revoke admin access. New admins must sign out and back in to use the admin panel.
+        </p>
+
+        {usersLoading && <p className="admin-loading">Loading users…</p>}
+        {usersError && <p className="admin-error">{usersError}</p>}
+
+        {!usersLoading && !usersError && (
+          <div className="admin-table-wrap">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Email</th>
+                  <th>Name</th>
+                  <th>Role</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {users.map((u) => {
+                  const isSelf = String(u.id) === String(user?.id);
+                  return (
+                    <tr key={u.id}>
+                      <td>{u.email}</td>
+                      <td>{u.username}</td>
+                      <td>
+                        {u.isAdmin ? (
+                          <span className="admin-badge">Admin</span>
+                        ) : (
+                          <span className="admin-badge admin-badge-user">User</span>
+                        )}
+                        {isSelf && <span className="admin-you-label"> (you)</span>}
+                      </td>
+                      <td>
+                        {u.isAdmin ? (
+                          <button
+                            type="button"
+                            className="admin-btn admin-btn-danger"
+                            disabled={isSelf || updatingUserId === u.id}
+                            title={isSelf ? "You cannot remove your own admin access" : undefined}
+                            onClick={() => handleSetAdmin(u, false)}
+                          >
+                            {updatingUserId === u.id ? "Saving…" : "Revoke admin"}
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="admin-btn admin-btn-primary"
+                            disabled={updatingUserId === u.id}
+                            onClick={() => handleSetAdmin(u, true)}
+                          >
+                            {updatingUserId === u.id ? "Saving…" : "Make admin"}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
 
       <section className="admin-section">

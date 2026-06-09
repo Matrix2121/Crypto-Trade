@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from ml_service.config import settings
@@ -17,6 +17,7 @@ from ml_service.pipeline.predict import (
 from ml_service.rag.indexer import index_from_predictions
 from ml_service.rag.retriever import rag_index_status
 
+logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
 app = FastAPI(title="Crypto-Trade ML Service", version="1.0.0")
@@ -50,9 +51,17 @@ async def predict_batch_hourly(
     align: str | None = Query(default="next_hour"),
 ):
     results = []
+    errors: list[str] = []
     for asset in settings.assets:
-        results.append(await run_hourly_prediction(asset, source=source, align=align))
-    return results
+        try:
+            results.append(await run_hourly_prediction(asset, source=source, align=align))
+        except Exception as exc:
+            msg = f"{asset}: {exc}"
+            logger.exception("Hourly prediction failed for %s", asset)
+            errors.append(msg)
+    if errors and not results:
+        raise HTTPException(status_code=503, detail={"errors": errors})
+    return {"results": results, "errors": errors}
 
 
 @app.post("/predict/batch/daily")
@@ -62,11 +71,19 @@ async def predict_batch_daily(
     align: str | None = Query(default="midnight"),
 ):
     results = []
+    errors: list[str] = []
     for asset in settings.assets:
-        results.append(
-            await run_daily_prediction(asset, use_rag=use_rag, source=source, align=align)
-        )
-    return results
+        try:
+            results.append(
+                await run_daily_prediction(asset, use_rag=use_rag, source=source, align=align)
+            )
+        except Exception as exc:
+            msg = f"{asset}: {exc}"
+            logger.exception("Daily prediction failed for %s", asset)
+            errors.append(msg)
+    if errors and not results:
+        raise HTTPException(status_code=503, detail={"errors": errors})
+    return {"results": results, "errors": errors}
 
 
 @app.post("/backtest/run")
