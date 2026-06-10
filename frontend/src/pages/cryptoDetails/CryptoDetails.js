@@ -1965,7 +1965,7 @@ const CryptoDetails = () => {
                 </div>
                 <div className="timeframe-selector-row timeframe-selector-row--aggregated">
                   <div className="timeframe-selector-aggregated-group">
-                    <span className="timeframe-selector-label">
+                    <span className="timeframe-selector-label timeframe-selector-label--aggregated">
                       Aggregated:
                     </span>
                     <div className="timeframe-selector timeframe-selector--aggregated">

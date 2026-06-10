@@ -1,0 +1,13 @@
+{
+  "name": "crypto-trade",
+  "private": true,
+  "description": "Repo root scripts — frontend lives in ./frontend",
+  "scripts": {
+    "cap:sync": "npm run cap:sync --prefix frontend",
+    "cap:android": "npm run cap:android --prefix frontend",
+    "cap:ios": "npm run cap:ios --prefix frontend",
+    "cap:assets": "npm run cap:assets --prefix frontend",
+    "frontend:start": "npm start --prefix frontend",
+    "frontend:build": "npm run build --prefix frontend"
+  }
+}

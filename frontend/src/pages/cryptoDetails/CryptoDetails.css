@@ -286,6 +286,7 @@
   font-variant-numeric: tabular-nums;
   line-height: 1.25;
   font-family: ui-monospace, "Cascadia Code", "SF Mono", Consolas, monospace;
+  overflow-wrap: anywhere;
 }
 
 .stat-value.positive {
@@ -361,39 +362,40 @@
 .timeframe-selectors {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  flex: 1;
+  gap: 0.4rem;
+  width: 100%;
   min-width: 0;
 }
 
 .timeframe-selector-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.5rem;
   flex-wrap: wrap;
+  width: 100%;
+  min-width: 0;
 }
 
 .timeframe-selector-row--aggregated {
-  flex-wrap: nowrap;
   width: 100%;
-  min-width: 0;
 }
 
 .timeframe-selector-aggregated-group {
   display: flex;
   flex-direction: row;
-  flex-wrap: nowrap;
-  align-items: center;
+  flex-wrap: wrap;
+  align-items: flex-start;
   gap: 0.5rem;
-  flex-shrink: 0;
+  flex: 1;
   min-width: 0;
+  width: 100%;
 }
 
 .timeframe-selector--aggregated {
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  scrollbar-width: thin;
-  -webkit-overflow-scrolling: touch;
+  flex: 1;
+  min-width: min(100%, 12rem);
+  flex-wrap: wrap;
+  overflow: visible;
 }
 
 .timeframe-selector--aggregated .timeframe-btn {
@@ -402,22 +404,29 @@
 
 .timeframe-selector-label {
   flex-shrink: 0;
-  width: 5.75rem;
+  padding-top: 0.3rem;
   font-size: 0.6875rem;
   font-weight: 700;
   color: var(--color-text-muted);
   letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 
 .timeframe-selector-label--live {
   color: var(--color-sell-text);
 }
 
+.timeframe-selector-label--aggregated {
+  min-width: 5.5rem;
+}
+
 .timeframe-selector {
   display: flex;
   flex-direction: row;
-  gap: 0.25rem;
   flex-wrap: wrap;
+  gap: 0.25rem;
+  flex: 1;
+  min-width: min(100%, 10rem);
 }
 
 .timeframe-btn {
@@ -1090,7 +1099,7 @@
 
 /* ── Responsive: stack on narrow screens ─────────────────────── */
 
-@media (max-width: 960px) {
+@media (max-width: 768px) {
   .terminal-main {
     grid-template-columns: 1fr;
     overflow: visible;
@@ -1099,20 +1108,40 @@
   .order-section {
     order: -1;
     height: auto;
-    max-height: 42vh;
-  }
-
-  .order-panel-feed {
-    flex: 1 1 0;
-    min-height: 0;
+    max-height: none;
   }
 
   .chart-section {
     min-height: 0;
   }
 
+  .crypto-details-container {
+    padding: 0.5rem 0.65rem 1rem;
+  }
+
+  .crypto-chart-wrapper {
+    height: 300px;
+    min-height: 260px;
+  }
+
+  .chart-predict-secondary-row {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
   .trading-panel {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .order-panel-feed {
+    flex: 1 1 0;
+    min-height: 0;
+    max-height: 40vh;
+  }
+
+  .crypto-back-btn {
+    min-height: 44px;
+    padding: 0.5rem 0.85rem;
   }
 }
 
@@ -1138,7 +1167,7 @@
   .chart-mode-btn,
   .btn-confirm,
   .crypto-favorite-btn {
-    min-height: 44px;
+    min-height: 36px;
   }
 }
 
@@ -1146,29 +1175,26 @@
 
 .chart-controls-bar {
   display: flex;
-  flex-shrink: 0;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
+  flex-direction: column;
   gap: 0.5rem;
+  width: 100%;
 }
 
 .chart-mode-controls {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
-  justify-content: space-between;
+  align-items: stretch;
   gap: 0.35rem;
-  flex-shrink: 0;
-  align-self: stretch;
+  width: 100%;
 }
 
 .chart-mode-toolbar {
   display: flex;
   flex-direction: row;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.375rem;
+  width: 100%;
 }
 
 .chart-mode-group {

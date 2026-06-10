@@ -141,7 +141,7 @@
 .rag-outcome.positive { color: #22c55e; }
 .rag-outcome.negative { color: #ef4444; }
 
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   .prediction-horizons-row {
     grid-template-columns: 1fr;
   }

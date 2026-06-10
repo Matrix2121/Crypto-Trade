@@ -62,3 +62,37 @@
   color: var(--color-text-muted);
   font-size: 0.875rem;
 }
+
+@media (max-width: 768px) {
+  .backtesting-page {
+    padding: 0.65rem;
+  }
+
+  .backtesting-page h2 {
+    font-size: 1.35rem;
+  }
+
+  .backtest-controls label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    width: 100%;
+  }
+
+  .backtest-controls select {
+    margin-left: 0;
+    width: 100%;
+    min-height: 44px;
+    font-size: 1rem;
+  }
+
+  .backtest-table th,
+  .backtest-table td {
+    padding: 0.5rem 0.65rem;
+    white-space: nowrap;
+  }
+
+  .drift-panel {
+    padding: 0.75rem;
+  }
+}

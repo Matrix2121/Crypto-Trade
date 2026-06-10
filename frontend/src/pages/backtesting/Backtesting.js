@@ -19,7 +19,7 @@ function pct(val) {
 }
 
 export default function Backtesting() {
-  const { summary, drift, loading, fetchSummary, fetchDrift } = useBacktest();
+  const { summary, drift, loading, error, fetchSummary, fetchDrift } = useBacktest();
   const [asset, setAsset] = useState(PREDICTION_ASSETS[0]);
 
   useEffect(() => {
@@ -55,6 +55,7 @@ export default function Backtesting() {
       </div>
 
       {loading && <p>Loading…</p>}
+      {error && !loading && <p className="backtest-error">{error}</p>}
 
       <div className="backtest-table-wrap">
         <table className="backtest-table">
