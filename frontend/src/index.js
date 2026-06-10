@@ -7,11 +7,13 @@ import { PricesProvider } from "./context/PricesContext";
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { RouterProvider } from 'react-router-dom';
 import { router } from './router';
+import { initNativeApp } from "./utils/initNativeApp";
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 const REACT_APP_GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID;
 
-root.render(
+initNativeApp().finally(() => {
+  root.render(
   <React.StrictMode>
     <GoogleOAuthProvider clientId={REACT_APP_GOOGLE_CLIENT_ID}>
       <AppProvider>
@@ -23,4 +25,5 @@ root.render(
       </AppProvider>
     </GoogleOAuthProvider>
   </React.StrictMode>
-);
+  );
+});

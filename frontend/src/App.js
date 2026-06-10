@@ -4,6 +4,8 @@ import { AppContext } from "./context/AppContext";
 import Sidebar from "./components/header/Sidebar";
 import "./App.css";
 
+const BRAND_LOGO = `${process.env.PUBLIC_URL}/logo.png`;
+
 export const AuthedLayout = () => {
   const { user } = useContext(AppContext);
   const location = useLocation();
@@ -47,7 +49,16 @@ export const AuthedLayout = () => {
           >
             ☰
           </button>
-          <span className="mobile-topbar-title">CryptoTrade</span>
+          <span className="mobile-topbar-brand">
+            <img
+              className="mobile-topbar-logo"
+              src={BRAND_LOGO}
+              alt=""
+              width={28}
+              height={28}
+            />
+            <span className="mobile-topbar-title">NoqTrade</span>
+          </span>
         </div>
         <div className="app-routes">
           <Outlet />

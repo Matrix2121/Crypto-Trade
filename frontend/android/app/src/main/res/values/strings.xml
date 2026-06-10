@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">NoqTrade</string>
+    <string name="title_activity_main">NoqTrade</string>
+    <string name="package_name">com.noqtrade.app</string>
+    <string name="custom_url_scheme">com.noqtrade.app</string>
+</resources>

@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { apiUrl, wsBaseUrl } from "../config/api";
 
 const PricesContext = createContext(null);
 
@@ -88,8 +89,7 @@ export function PricesProvider({ children }) {
   const connectWebSocket = useCallback(() => {
     if (!mountedRef.current) return;
 
-    const wsBaseUrl = process.env.REACT_APP_API_URL.replace(/^http/, "ws");
-    const socket = new WebSocket(`${wsBaseUrl}/ws`);
+    const socket = new WebSocket(`${wsBaseUrl()}/ws`);
     socketRef.current = socket;
 
     socket.onopen = () => {
@@ -123,8 +123,11 @@ export function PricesProvider({ children }) {
   useEffect(() => {
     mountedRef.current = true;
 
-    fetch(`${process.env.REACT_APP_API_URL}/api/prices`)
-      .then((res) => res.json())
+    fetch(apiUrl("/api/prices"))
+      .then((res) => {
+        if (!res.ok) throw new Error(`Prices request failed (${res.status})`);
+        return res.json();
+      })
       .then((data) => {
         if (!mountedRef.current) return;
         const priceMap = {};

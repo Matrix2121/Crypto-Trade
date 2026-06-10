@@ -1,49 +1,47 @@
-import { GoogleLogin } from '@react-oauth/google';
-import { useContext } from "react";
+import { GoogleLogin } from "@react-oauth/google";
+import { GoogleAuth } from "@codetrix-studio/capacitor-google-auth";
+import { useContext, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppContext } from "../../context/AppContext";
+import { completeGoogleLogin, persistUserSession } from "../../utils/completeGoogleLogin";
+import { isNativeApp } from "../../utils/isNativeApp";
 import "./LandingPage.css";
 
 const LandingPage = () => {
   const navigate = useNavigate();
   const { setUser } = useContext(AppContext);
+  const [nativeSigningIn, setNativeSigningIn] = useState(false);
+  const native = isNativeApp();
+
+  const finishLogin = async (idToken) => {
+    const data = await completeGoogleLogin(idToken);
+    persistUserSession(data, setUser);
+    navigate("/market");
+  };
 
   const handleGoogleSuccess = async (credentialResponse) => {
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/auth/google`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: credentialResponse.credential }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Auth failed with status ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      localStorage.setItem('userId', data.id);
-      localStorage.setItem('jwt', data.jwt);
-      localStorage.setItem('username', data.username);
-      localStorage.setItem('isAdmin', String(Boolean(data.isAdmin)));
-      if (data.pictureUrl) {
-        localStorage.setItem('pictureUrl', data.pictureUrl);
-      } else {
-        localStorage.removeItem('pictureUrl');
-      }
-      setUser({
-        id: data.id,
-        username: data.username,
-        pictureUrl: data.pictureUrl ?? null,
-        balance: data.balance,
-        isAdmin: Boolean(data.isAdmin),
-      });
-
-      navigate('/market');
-
+      await finishLogin(credentialResponse.credential);
     } catch (error) {
       console.error("Login failed:", error);
       alert("Login failed");
+    }
+  };
+
+  const handleNativeGoogleSignIn = async () => {
+    setNativeSigningIn(true);
+    try {
+      const result = await GoogleAuth.signIn();
+      const idToken = result?.authentication?.idToken;
+      if (!idToken) {
+        throw new Error("Google sign-in did not return an ID token");
+      }
+      await finishLogin(idToken);
+    } catch (error) {
+      console.error("Native Google login failed:", error);
+      alert("Login failed");
+    } finally {
+      setNativeSigningIn(false);
     }
   };
 
@@ -63,11 +61,22 @@ const LandingPage = () => {
 
           <div className="landing-cta-row">
             <div className="login-container">
-            <GoogleLogin
-              onSuccess={handleGoogleSuccess}
-              onError={handleGoogleError}
-              useOneTap
-            />
+              {native ? (
+                <button
+                  type="button"
+                  className="landing-google-btn"
+                  onClick={handleNativeGoogleSignIn}
+                  disabled={nativeSigningIn}
+                >
+                  {nativeSigningIn ? "Signing in…" : "Sign in with Google"}
+                </button>
+              ) : (
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={handleGoogleError}
+                  useOneTap
+                />
+              )}
             </div>
           </div>
         </div>
@@ -95,4 +104,3 @@ const LandingPage = () => {
 };
 
 export default LandingPage;
-
