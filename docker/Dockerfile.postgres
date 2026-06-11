@@ -1,0 +1,17 @@
+FROM timescale/timescaledb:latest-pg15
+
+USER root
+
+RUN apk add --no-cache --virtual .build-deps \
+        git build-base postgresql15-dev \
+    && git clone --branch v0.8.0 --depth 1 https://github.com/pgvector/pgvector.git /tmp/pgvector \
+    && cd /tmp/pgvector \
+    && make OPTFLAGS="" vector.so \
+    && cp sql/vector.sql sql/vector--0.8.0.sql \
+    && install -m 755 vector.so "$(pg_config --pkglibdir)/vector.so" \
+    && install -m 644 sql/vector.sql sql/vector--0.8.0.sql "$(pg_config --sharedir)/extension/" \
+    && cd / \
+    && rm -rf /tmp/pgvector \
+    && apk del .build-deps
+
+USER postgres

@@ -49,6 +49,7 @@ public class SecurityConfig {
         
         // Add your live domains to the VIP list
         config.setAllowedOrigins(List.of(
+            "http://localhost:3000",
             "http://noqtrade.com",
             "http://www.noqtrade.com",
             "https://noqtrade.com",

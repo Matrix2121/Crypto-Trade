@@ -19,7 +19,6 @@ import com.matrix2121.cryptotrade.admin.dto.AddTrackedCryptoRequest;
 import com.matrix2121.cryptotrade.admin.dto.AdminUserDto;
 import com.matrix2121.cryptotrade.admin.dto.SetAdminRequest;
 import com.matrix2121.cryptotrade.marketdata.MarketDataSyncService;
-import com.matrix2121.cryptotrade.marketdata.OhlcDataCleanupService;
 import com.matrix2121.cryptotrade.marketstats.MarketStatsService;
 import com.matrix2121.cryptotrade.marketstats.MarketStatsSyncService;
 import com.matrix2121.cryptotrade.marketstats.dto.TrackedAssetDto;
@@ -35,10 +34,8 @@ public class AdminController {
     private final AdminTrackedCryptoService adminTrackedCryptoService;
     private final MarketDataSyncService marketDataSyncService;
     private final MarketStatsSyncService marketStatsSyncService;
-    private final OhlcDataCleanupService ohlcDataCleanupService;
     private final MlServiceClient mlServiceClient;
     private final AtomicBoolean statsSyncInProgress = new AtomicBoolean(false);
-    private final AtomicBoolean cleanupInProgress = new AtomicBoolean(false);
     private final AtomicBoolean hourlyPredictInProgress = new AtomicBoolean(false);
     private final AtomicBoolean dailyPredictInProgress = new AtomicBoolean(false);
 
@@ -48,14 +45,12 @@ public class AdminController {
             AdminTrackedCryptoService adminTrackedCryptoService,
             MarketDataSyncService marketDataSyncService,
             MarketStatsSyncService marketStatsSyncService,
-            OhlcDataCleanupService ohlcDataCleanupService,
             MlServiceClient mlServiceClient) {
         this.marketStatsService = marketStatsService;
         this.adminUserService = adminUserService;
         this.adminTrackedCryptoService = adminTrackedCryptoService;
         this.marketDataSyncService = marketDataSyncService;
         this.marketStatsSyncService = marketStatsSyncService;
-        this.ohlcDataCleanupService = ohlcDataCleanupService;
         this.mlServiceClient = mlServiceClient;
     }
 
@@ -107,21 +102,6 @@ public class AdminController {
                 marketStatsSyncService.syncMarketStats();
             } finally {
                 statsSyncInProgress.set(false);
-            }
-        });
-        return ResponseEntity.accepted().build();
-    }
-
-    @PostMapping("/sync/cleanup")
-    public ResponseEntity<Void> syncCleanup() {
-        if (!cleanupInProgress.compareAndSet(false, true)) {
-            return ResponseEntity.status(409).build();
-        }
-        CompletableFuture.runAsync(() -> {
-            try {
-                ohlcDataCleanupService.runCleanup();
-            } finally {
-                cleanupInProgress.set(false);
             }
         });
         return ResponseEntity.accepted().build();

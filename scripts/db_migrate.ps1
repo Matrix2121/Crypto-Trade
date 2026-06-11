@@ -52,7 +52,7 @@ $tablesOk = (Invoke-Psql @"
 SELECT COUNT(*) = 4
 FROM information_schema.tables
 WHERE table_schema = 'public'
-  AND table_name IN ('users', 'predictions', 'market_events', 'ohlc_data')
+  AND table_name IN ('users', 'predictions', 'market_events', 'ohlc_1m')
 "@).Trim()
 
 $reason = $null

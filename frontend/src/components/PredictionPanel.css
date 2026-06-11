@@ -1,9 +1,3 @@
-:root {
-  --prediction-ml-hourly: #22c55e;
-  --prediction-ml-daily: #3b82f6;
-  --prediction-context-aware: #a855f7;
-}
-
 .prediction-panel {
   margin-top: 1rem;
   padding: 1rem 1.25rem;
@@ -61,15 +55,15 @@
 }
 
 .forecast-card.ml-1h {
-  border-left: 3px dashed var(--prediction-ml-hourly);
+  border-left: 3px dashed var(--prediction-ml-hourly, #f59e0b);
 }
 
 .forecast-card.ml {
-  border-left: 3px dashed var(--prediction-ml-daily);
+  border-left: 3px dashed var(--prediction-ml-daily, #14b8a6);
 }
 
 .forecast-card.context-aware {
-  border-left: 3px dashed var(--prediction-context-aware);
+  border-left: 3px dashed var(--prediction-context-aware, #a855f7);
 }
 
 .forecast-card h4 {
@@ -78,6 +72,18 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--color-text-muted);
+}
+
+.forecast-card.ml-1h h4 {
+  color: var(--prediction-ml-hourly, #f59e0b);
+}
+
+.forecast-card.ml h4 {
+  color: var(--prediction-ml-daily, #14b8a6);
+}
+
+.forecast-card.context-aware h4 {
+  color: var(--prediction-context-aware, #a855f7);
 }
 
 .forecast-price {

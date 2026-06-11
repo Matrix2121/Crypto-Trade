@@ -1,12 +1,15 @@
 services:
   db:
-    image: pgvector/pgvector:pg15
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.postgres
+    image: cryptotrade-postgres:timescale-pg15
     environment:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:${PUBLISHED_DB_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./backend/src/main/resources/db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
@@ -18,7 +21,7 @@ services:
     restart: unless-stopped
 
   db-migrate:
-    image: pgvector/pgvector:pg15
+    image: cryptotrade-postgres:timescale-pg15
     environment:
       DB_HOST: db
       DB_PORT: 5432

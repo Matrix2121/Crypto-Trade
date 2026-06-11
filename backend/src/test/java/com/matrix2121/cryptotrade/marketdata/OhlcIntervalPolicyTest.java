@@ -9,34 +9,31 @@ import org.junit.jupiter.api.Test;
 class OhlcIntervalPolicyTest {
 
     @Test
-    void krakenSyncIntervals_excludesAggregationOnly() {
-        var intervals = OhlcIntervalPolicy.krakenSyncIntervals().stream()
-                .map(OhlcIntervalPolicy.IntervalSpec::intervalString)
+    void krakenBaseIntervals_includesOnly1mAnd1d() {
+        var intervals = OhlcIntervalPolicy.krakenBaseIntervals().stream()
+                .map(OhlcIntervalPolicy.BaseIntervalSpec::name)
                 .toList();
 
+        assertEquals(2, intervals.size());
         assertTrue(intervals.contains("1m"));
-        assertTrue(intervals.contains("30m"));
         assertTrue(intervals.contains("1d"));
+        assertFalse(intervals.contains("30m"));
         assertFalse(intervals.contains("1h"));
-        assertFalse(intervals.contains("4h"));
     }
 
     @Test
-    void oneHourInterval_retainedIndefinitelyForMlTraining() {
-        var oneHour = OhlcIntervalPolicy.findByIntervalString("1h").orElseThrow();
+    void oneMinuteInterval_hasTwoDayRetention() {
+        var oneMinute = OhlcIntervalPolicy.findByName("1m").orElseThrow();
 
-        assertFalse(oneHour.retentionMs().isPresent());
+        assertTrue(oneMinute.retentionMs().isPresent());
+        assertEquals(2L * 24 * 60 * 60 * 1000, oneMinute.retentionMs().get());
     }
 
     @Test
-    void intervalsWithRetention_excludesUnlimitedDailyMonthlyAndHourly() {
-        var retained = OhlcIntervalPolicy.intervalsWithRetention().stream()
-                .map(OhlcIntervalPolicy.IntervalSpec::intervalString)
-                .toList();
+    void dailyInterval_hasUnlimitedRetention() {
+        var daily = OhlcIntervalPolicy.findByName("1d").orElseThrow();
 
-        assertFalse(retained.contains("1d"));
-        assertFalse(retained.contains("1mo"));
-        assertFalse(retained.contains("1h"));
+        assertFalse(daily.retentionMs().isPresent());
     }
 
     @Test

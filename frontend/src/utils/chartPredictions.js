@@ -92,6 +92,9 @@ export const HISTORY_FETCH_LIMIT = {
 
 const DAY_MS = 24 * HOUR_MS;
 
+/** Stagger wedge anchors off the live candle timestamp so series do not collide. */
+const WEDGE_ANCHOR_STAGGER_MS = 1;
+
 const EMPTY_OVERLAY = {
   points: [],
   lineConfigs: [],
@@ -208,9 +211,9 @@ export function formatPredictionTargetTime(ts) {
 export function getPredictionFilterLabel(
   showPredictions,
   range,
-  prediction,
   hasLines,
   predictionWindowEnd,
+  showHistoricalPredictions = false,
 ) {
   if (!showPredictions || !isPredictionChartRange(range)) return null;
   if (!hasLines) return null;
@@ -226,8 +229,10 @@ export function getPredictionFilterLabel(
   }
 
   if (DAILY_ONLY_CHART_RANGES.has(range)) {
-    const to = formatDayLabel(predictionWindowEnd ?? floorToDayMs(Date.now()) + DAY_MS);
-    return `Model daily & context-aware forecast to ${to}`;
+    if (showHistoricalPredictions) {
+      return "Past model daily & context-aware predictions";
+    }
+    return null;
   }
 
   const to = formatHourLabel(predictionWindowEnd ?? floorToHourMs(Date.now()) + HOUR_MS);
@@ -287,118 +292,6 @@ function getLastLivePoint(displayData) {
     }
   }
   return null;
-}
-
-function getPriceNearTimestamp(displayData, timestamp) {
-  let priceBefore = null;
-  let priceAfter = null;
-
-  for (const row of displayData || []) {
-    if (row.isFutureSlot || row.isFutureTarget) continue;
-    const price = row.close ?? row.price;
-    if (typeof price !== "number" || Number.isNaN(price)) continue;
-
-    if (row.timestamp <= timestamp) {
-      priceBefore = price;
-    } else if (priceAfter == null) {
-      priceAfter = price;
-      break;
-    }
-  }
-
-  return priceBefore ?? priceAfter ?? null;
-}
-
-function getHistoricalAnchorPrice(record, displayData, predTs) {
-  const snapshotClose =
-    record?.contextSnapshot?.ohlcvState?.close
-    ?? record?.contextSnapshot?.ohlcv_state?.close;
-  if (typeof snapshotClose === "number" && !Number.isNaN(snapshotClose)) {
-    return snapshotClose;
-  }
-  return getPriceNearTimestamp(displayData, predTs);
-}
-
-function predictionOverlapsChart(predTs, targetTs, bounds) {
-  return targetTs >= bounds.minTs && predTs <= bounds.maxTs;
-}
-
-function flattenBandSegmentsForChart(segments, ciLowKey, ciHighKey) {
-  const rows = [];
-  segments.forEach(([anchor, target], index) => {
-    rows.push(anchor, target);
-    if (index < segments.length - 1) {
-      rows.push({
-        timestamp: target.timestamp + 1,
-        [ciLowKey]: null,
-        [ciHighKey]: null,
-      });
-    }
-  });
-  return rows;
-}
-
-function buildHistoricalWedgeSegments({
-  displayData,
-  bounds,
-  byIndex,
-  horizonMs,
-  getCi,
-  histKeys,
-  anchorFlag,
-  targetFlag,
-}) {
-  const segments = [];
-  const nowMs = Date.now();
-
-  for (const [predTs, record] of byIndex) {
-    const targetTs = predTs + horizonMs;
-    const ci = getCi(record);
-    if (!ci || targetTs > nowMs) continue;
-    if (!predictionOverlapsChart(predTs, targetTs, bounds)) continue;
-
-    const anchorPrice = getHistoricalAnchorPrice(record, displayData, predTs);
-    if (anchorPrice == null) continue;
-
-    segments.push([
-      {
-        timestamp: predTs,
-        [histKeys.low]: anchorPrice,
-        [histKeys.high]: anchorPrice,
-        [anchorFlag]: true,
-      },
-      {
-        timestamp: targetTs,
-        [histKeys.low]: ci.ciLow,
-        [histKeys.high]: ci.ciHigh,
-        [targetFlag]: true,
-      },
-    ]);
-  }
-
-  return segments;
-}
-
-function applyHistoricalWedgeBand(
-  pointMap,
-  lineConfigs,
-  segments,
-  bandConfig,
-  ciLowKey,
-  ciHighKey,
-) {
-  if (!segments.length) return;
-
-  for (const point of flattenBandSegmentsForChart(segments, ciLowKey, ciHighKey)) {
-    const existing = pointMap.get(point.timestamp);
-    pointMap.set(point.timestamp, existing ? { ...existing, ...point } : point);
-  }
-
-  lineConfigs.push({
-    ...bandConfig,
-    bandSegments: segments,
-    connectNulls: segments.length <= 1,
-  });
 }
 
 function build1hBandConfig() {
@@ -462,63 +355,12 @@ function buildContextAwareBandConfig() {
   };
 }
 
-function buildHistorical1hBandConfig() {
-  const histCi = HISTORICAL_CI_KEYS[PREDICTION_LINE_KEYS.FUTURE];
+function buildWedgeAnchorPoint(lastLive, ciKeys, seriesIndex) {
   return {
-    type: "band",
-    ciLowKey: histCi.low,
-    ciHighKey: histCi.high,
-    name: "Past model hourly forecasts",
-    stroke: "#4ade80",
-    fillOpacity: 0.1,
-    strokeWidth: 1.25,
-    strokeDasharray: "3 5",
-    strokeOpacity: 0.85,
-  };
-}
-
-function buildHistoricalHourlyBandConfig() {
-  const histCi = HISTORICAL_CI_KEYS[PREDICTION_LINE_KEYS.HOURLY];
-  return {
-    type: "band",
-    ciLowKey: histCi.low,
-    ciHighKey: histCi.high,
-    name: "Past model hourly forecasts",
-    stroke: "#4ade80",
-    fillOpacity: 0.08,
-    strokeWidth: 1.25,
-    strokeDasharray: "3 5",
-    strokeOpacity: 0.85,
-  };
-}
-
-function buildHistoricalDailyBandConfig() {
-  const histCi = HISTORICAL_CI_KEYS[PREDICTION_LINE_KEYS.DAILY];
-  return {
-    type: "band",
-    ciLowKey: histCi.low,
-    ciHighKey: histCi.high,
-    name: "Past model daily forecasts",
-    stroke: "#60a5fa",
-    fillOpacity: 0.1,
-    strokeWidth: 1.25,
-    strokeDasharray: "3 5",
-    strokeOpacity: 0.85,
-  };
-}
-
-function buildHistoricalContextAwareBandConfig() {
-  const histCi = HISTORICAL_CI_KEYS[PREDICTION_LINE_KEYS.CONTEXT_AWARE];
-  return {
-    type: "band",
-    ciLowKey: histCi.low,
-    ciHighKey: histCi.high,
-    name: "Past context-aware forecasts",
-    stroke: "#c084fc",
-    fillOpacity: 0.08,
-    strokeWidth: 1.25,
-    strokeDasharray: "3 5",
-    strokeOpacity: 0.85,
+    timestamp: lastLive.timestamp + (seriesIndex + 1) * WEDGE_ANCHOR_STAGGER_MS,
+    isForecastAnchor: true,
+    [ciKeys.low]: lastLive.price,
+    [ciKeys.high]: lastLive.price,
   };
 }
 
@@ -527,32 +369,41 @@ function buildLiveAnchoredWedgeBands(lastLive, wedges) {
   const lineConfigs = [];
   let predictionWindowEnd = lastLive.timestamp;
 
-  const anchorPoint = {
-    timestamp: lastLive.timestamp,
-    isForecastAnchor: true,
-  };
-
-  for (const wedge of wedges) {
+  wedges.forEach((wedge) => {
     const { targetTs, ci, ciKeys, lineConfig, targetFlags } = wedge;
-    if (!ci || targetTs <= Date.now()) continue;
+    if (!ci || targetTs <= Date.now()) return;
 
-    anchorPoint[ciKeys.low] = lastLive.price;
-    anchorPoint[ciKeys.high] = lastLive.price;
+    const existingAnchor = pointMap.get(lastLive.timestamp) ?? {
+      timestamp: lastLive.timestamp,
+      isForecastAnchor: true,
+    };
+    pointMap.set(lastLive.timestamp, {
+      ...existingAnchor,
+      isForecastAnchor: true,
+      [ciKeys.low]: lastLive.price,
+      [ciKeys.high]: lastLive.price,
+    });
 
-    const existingTarget = pointMap.get(targetTs) ?? { timestamp: targetTs };
-    pointMap.set(targetTs, {
-      ...existingTarget,
+    const anchorPoint = pointMap.get(lastLive.timestamp);
+    const target = {
+      timestamp: targetTs,
       [ciKeys.low]: ci.ciLow,
       [ciKeys.high]: ci.ciHigh,
       ...targetFlags,
+    };
+    const existingTarget = pointMap.get(targetTs) ?? { timestamp: targetTs };
+    pointMap.set(targetTs, { ...existingTarget, ...target });
+
+    lineConfigs.push({
+      ...lineConfig,
+      bandSegments: [[anchorPoint, target]],
+      connectNulls: true,
     });
-    lineConfigs.push(lineConfig);
     predictionWindowEnd = Math.max(predictionWindowEnd, targetTs);
-  }
+  });
 
   if (!lineConfigs.length) return null;
 
-  pointMap.set(lastLive.timestamp, anchorPoint);
   return {
     points: [...pointMap.values()].sort((a, b) => a.timestamp - b.timestamp),
     lineConfigs,
@@ -637,367 +488,186 @@ function build1d1wPredictionOverlay(displayData, prediction) {
 }
 
 /**
- * 1M, 3M, and 1Y chart overlay: daily wedge to tomorrow, anchored at the last live price.
+ * In-range past target dots only (no chart-edge or live-price anchors).
+ * Uses forecast CI keys so the series can connect to the forward overlay.
  */
-function buildLongRangeDailyPredictionOverlay(displayData, prediction) {
-  if (!displayData.length || !prediction) return EMPTY_OVERLAY;
-
-  const lastLive = getLastLivePoint(displayData);
-  if (!lastLive) return EMPTY_OVERLAY;
-
-  const tomorrowStart = floorToDayMs(Date.now()) + DAY_MS;
-  const dailyCiKeys = FORECAST_CI_KEYS[PREDICTION_LINE_KEYS.DAILY];
-  const contextCiKeys = FORECAST_CI_KEYS[PREDICTION_LINE_KEYS.CONTEXT_AWARE];
-
-  const overlay = buildLiveAnchoredWedgeBands(lastLive, [
-    {
-      targetTs: tomorrowStart,
-      ci: getForecastCi(prediction.mlPrediction),
-      ciKeys: dailyCiKeys,
-      lineConfig: buildDailyBandConfig(),
-      targetFlags: { isDailyFutureTarget: true },
-    },
-    {
-      targetTs: tomorrowStart,
-      ci: getForecastCi(prediction.contextAwarePrediction),
-      ciKeys: contextCiKeys,
-      lineConfig: buildContextAwareBandConfig(),
-      targetFlags: { isContextAwareFutureTarget: true },
-    },
-  ]);
-
-  return overlay ?? EMPTY_OVERLAY;
-}
-
-function addHistoricalHourlyTargetsFromHistory(
-  pointMap,
+function buildPastCorridorTargetPoints({
   bounds,
-  history,
+  byIndex,
+  horizonMs,
+  getCi,
+  ciKeys,
   histKeys,
-  flagKey,
-) {
-  let count = 0;
+  targetFlag,
+}) {
   const nowMs = Date.now();
+  const targets = [];
 
-  for (const record of history || []) {
-    const predMs = parsePredictedAtMs(record);
-    if (predMs == null) continue;
-    const predHour = floorToHourMs(predMs);
-    if (predHour == null) continue;
+  for (const [predTs, record] of byIndex) {
+    const targetTs = predTs + horizonMs;
+    const ci = getCi(record);
+    if (!ci || targetTs > nowMs) continue;
+    if (targetTs < bounds.minTs || targetTs > bounds.maxTs) continue;
 
-    const targetHour = predHour + HOUR_MS;
-    const ci = getForecastCi(record?.ml1hPrediction);
-    if (!ci || targetHour > nowMs) continue;
-    if (targetHour < bounds.minTs || targetHour > bounds.maxTs) continue;
-
-    const existing = pointMap.get(targetHour) ?? { timestamp: targetHour };
-    pointMap.set(targetHour, {
-      ...existing,
-      [histKeys.low]: ci.ciLow,
-      [histKeys.high]: ci.ciHigh,
-      [flagKey]: true,
-    });
-    count += 1;
+    const point = {
+      timestamp: targetTs,
+      [ciKeys.low]: ci.ciLow,
+      [ciKeys.high]: ci.ciHigh,
+      [targetFlag]: true,
+    };
+    if (histKeys) {
+      point[histKeys.low] = ci.ciLow;
+      point[histKeys.high] = ci.ciHigh;
+    }
+    targets.push(point);
   }
 
-  return count;
+  return targets.sort((a, b) => a.timestamp - b.timestamp);
 }
 
-function addHistoricalDailyTargetsFromHistory(
-  pointMap,
-  bounds,
-  history,
-  histKeys,
-  flagKey,
-) {
-  let count = 0;
-  const nowMs = Date.now();
+function getLinkedSeriesDefinitions(range, byHour, byDay) {
+  const defs = [];
 
-  for (const record of history || []) {
-    const predMs = parsePredictedAtMs(record);
-    if (predMs == null) continue;
-    const predDay = floorToDayMs(predMs);
-    if (predDay == null) continue;
-
-    const targetDay = predDay + DAY_MS;
-    const ci = getForecastCi(record?.mlPrediction);
-    if (!ci || targetDay > nowMs) continue;
-    if (targetDay < bounds.minTs || targetDay > bounds.maxTs) continue;
-
-    const existing = pointMap.get(targetDay) ?? { timestamp: targetDay };
-    pointMap.set(targetDay, {
-      ...existing,
-      [histKeys.low]: ci.ciLow,
-      [histKeys.high]: ci.ciHigh,
-      [flagKey]: true,
-    });
-    count += 1;
-  }
-
-  return count;
-}
-
-function addHistoricalContextAwareTargetsFromHistory(
-  pointMap,
-  bounds,
-  history,
-  histKeys,
-  flagKey,
-) {
-  let count = 0;
-  const nowMs = Date.now();
-
-  for (const record of history || []) {
-    const predMs = parsePredictedAtMs(record);
-    if (predMs == null) continue;
-    const predDay = floorToDayMs(predMs);
-    if (predDay == null) continue;
-
-    const targetDay = predDay + DAY_MS;
-    const ci = getForecastCi(record?.contextAwarePrediction);
-    if (!ci || targetDay > nowMs) continue;
-    if (targetDay < bounds.minTs || targetDay > bounds.maxTs) continue;
-
-    const existing = pointMap.get(targetDay) ?? { timestamp: targetDay };
-    pointMap.set(targetDay, {
-      ...existing,
-      [histKeys.low]: ci.ciLow,
-      [histKeys.high]: ci.ciHigh,
-      [flagKey]: true,
-    });
-    count += 1;
-  }
-
-  return count;
-}
-
-function getEarliestBandTimestamp(pointMap, ciLowKey) {
-  let earliest = null;
-  for (const [ts, point] of pointMap) {
-    if (typeof point[ciLowKey] !== "number") continue;
-    if (earliest == null || ts < earliest) earliest = ts;
-  }
-  return earliest;
-}
-
-function countBandPoints(pointMap, ciLowKey) {
-  let count = 0;
-  for (const point of pointMap.values()) {
-    if (typeof point[ciLowKey] === "number") count += 1;
-  }
-  return count;
-}
-
-function ensureHistoricalCorridorAnchor(
-  pointMap,
-  bounds,
-  displayData,
-  ciLowKey,
-  ciHighKey,
-) {
-  const earliest = getEarliestBandTimestamp(pointMap, ciLowKey);
-  if (earliest == null || earliest <= bounds.minTs) return;
-
-  const price =
-    getPriceNearTimestamp(displayData, bounds.minTs)
-    ?? getPriceNearTimestamp(displayData, earliest);
-  if (price == null) return;
-
-  const existing = pointMap.get(bounds.minTs) ?? { timestamp: bounds.minTs };
-  pointMap.set(bounds.minTs, {
-    ...existing,
-    [ciLowKey]: price,
-    [ciHighKey]: price,
-  });
-}
-
-function tryAddHistoricalCorridorBand(
-  pointMap,
-  lineConfigs,
-  bounds,
-  displayData,
-  targetCount,
-  bandConfig,
-  ciLowKey,
-  ciHighKey,
-) {
-  if (targetCount < 1) return;
-  ensureHistoricalCorridorAnchor(
-    pointMap,
-    bounds,
-    displayData,
-    ciLowKey,
-    ciHighKey,
-  );
-  if (countBandPoints(pointMap, ciLowKey) >= 2) lineConfigs.push(bandConfig);
-}
-
-/**
- * Past prediction corridors: dotted CI lines through historical targets
- * that fit inside the current chart window.
- */
-export function buildHistoricalPredictionOverlay(
-  displayData,
-  history,
-  range,
-) {
-  if (!displayData?.length || !history?.length || !isPredictionChartRange(range)) {
-    return EMPTY_OVERLAY;
-  }
-
-  const bounds = getHistoricalChartBounds(displayData);
-  if (!bounds) return EMPTY_OVERLAY;
-
-  const { byHour } = buildPredictionIndex(history);
-  const pointMap = new Map();
-  const lineConfigs = [];
-
-  if (range === "1H") {
-    const histKeys = HISTORICAL_CI_KEYS[PREDICTION_LINE_KEYS.FUTURE];
-    const segments = buildHistoricalWedgeSegments({
-      displayData,
-      bounds,
+  if (range === "1H" || range === "1D" || range === "1W") {
+    const hourlyLineKey = range === "1H"
+      ? PREDICTION_LINE_KEYS.FUTURE
+      : PREDICTION_LINE_KEYS.HOURLY;
+    defs.push({
       byIndex: byHour,
       horizonMs: HOUR_MS,
       getCi: (record) => getForecastCi(record?.ml1hPrediction),
-      histKeys,
-      anchorFlag: "isHistoricalAnchor",
-      targetFlag: "isHistoricalFutureTarget",
+      ciKeys: FORECAST_CI_KEYS[hourlyLineKey],
+      histKeys: HISTORICAL_CI_KEYS[hourlyLineKey],
+      targetFlag: range === "1H"
+        ? "isHistoricalFutureTarget"
+        : "isHistoricalHourlyTarget",
+      futureTargetFlag: range === "1H" ? "isFutureTarget" : "isHourlyFutureTarget",
+      bandConfig: range === "1H" ? build1hBandConfig()[0] : buildHourlyBandConfig(),
     });
-    applyHistoricalWedgeBand(
-      pointMap,
-      lineConfigs,
-      segments,
-      buildHistorical1hBandConfig(),
-      histKeys.low,
-      histKeys.high,
-    );
   }
 
-  if (range === "1D" || range === "1W") {
-    const hourlyHistKeys = HISTORICAL_CI_KEYS[PREDICTION_LINE_KEYS.HOURLY];
-    const dailyHistKeys = HISTORICAL_CI_KEYS[PREDICTION_LINE_KEYS.DAILY];
-    const contextHistKeys = HISTORICAL_CI_KEYS[PREDICTION_LINE_KEYS.CONTEXT_AWARE];
-    const hourlyCount = addHistoricalHourlyTargetsFromHistory(
-      pointMap,
-      bounds,
-      history,
-      hourlyHistKeys,
-      "isHistoricalHourlyTarget",
-    );
-    const dailyCount = addHistoricalDailyTargetsFromHistory(
-      pointMap,
-      bounds,
-      history,
-      dailyHistKeys,
-      "isHistoricalDailyTarget",
-    );
-    const contextCount = addHistoricalContextAwareTargetsFromHistory(
-      pointMap,
-      bounds,
-      history,
-      contextHistKeys,
-      "isHistoricalContextAwareTarget",
-    );
-    tryAddHistoricalCorridorBand(
-      pointMap,
-      lineConfigs,
-      bounds,
-      displayData,
-      hourlyCount,
-      buildHistoricalHourlyBandConfig(),
-      hourlyHistKeys.low,
-      hourlyHistKeys.high,
-    );
-    tryAddHistoricalCorridorBand(
-      pointMap,
-      lineConfigs,
-      bounds,
-      displayData,
-      dailyCount,
-      buildHistoricalDailyBandConfig(),
-      dailyHistKeys.low,
-      dailyHistKeys.high,
-    );
-    tryAddHistoricalCorridorBand(
-      pointMap,
-      lineConfigs,
-      bounds,
-      displayData,
-      contextCount,
-      buildHistoricalContextAwareBandConfig(),
-      contextHistKeys.low,
-      contextHistKeys.high,
-    );
+  if (range === "1D" || range === "1W" || DAILY_ONLY_CHART_RANGES.has(range)) {
+    defs.push({
+      byIndex: byDay,
+      horizonMs: DAY_MS,
+      getCi: (record) => getForecastCi(record?.mlPrediction),
+      ciKeys: FORECAST_CI_KEYS[PREDICTION_LINE_KEYS.DAILY],
+      histKeys: HISTORICAL_CI_KEYS[PREDICTION_LINE_KEYS.DAILY],
+      targetFlag: "isHistoricalDailyTarget",
+      futureTargetFlag: "isDailyFutureTarget",
+      bandConfig: buildDailyBandConfig(),
+    });
+    defs.push({
+      byIndex: byDay,
+      horizonMs: DAY_MS,
+      getCi: (record) => getForecastCi(record?.contextAwarePrediction),
+      ciKeys: FORECAST_CI_KEYS[PREDICTION_LINE_KEYS.CONTEXT_AWARE],
+      histKeys: HISTORICAL_CI_KEYS[PREDICTION_LINE_KEYS.CONTEXT_AWARE],
+      targetFlag: "isHistoricalContextAwareTarget",
+      futureTargetFlag: "isContextAwareFutureTarget",
+      bandConfig: buildContextAwareBandConfig(),
+    });
   }
 
-  if (DAILY_ONLY_CHART_RANGES.has(range)) {
-    const dailyHistKeys = HISTORICAL_CI_KEYS[PREDICTION_LINE_KEYS.DAILY];
-    const contextHistKeys = HISTORICAL_CI_KEYS[PREDICTION_LINE_KEYS.CONTEXT_AWARE];
-    const dailyCount = addHistoricalDailyTargetsFromHistory(
-      pointMap,
-      bounds,
-      history,
-      dailyHistKeys,
-      "isHistoricalDailyTarget",
-    );
-    const contextCount = addHistoricalContextAwareTargetsFromHistory(
-      pointMap,
-      bounds,
-      history,
-      contextHistKeys,
-      "isHistoricalContextAwareTarget",
-    );
-    tryAddHistoricalCorridorBand(
-      pointMap,
-      lineConfigs,
-      bounds,
-      displayData,
-      dailyCount,
-      buildHistoricalDailyBandConfig(),
-      dailyHistKeys.low,
-      dailyHistKeys.high,
-    );
-    tryAddHistoricalCorridorBand(
-      pointMap,
-      lineConfigs,
-      bounds,
-      displayData,
-      contextCount,
-      buildHistoricalContextAwareBandConfig(),
-      contextHistKeys.low,
-      contextHistKeys.high,
-    );
+  return defs;
+}
+
+/**
+ * Past corridors linked directly to future targets (no live-price pin at now).
+ */
+export function buildCombinedPredictionOverlay(
+  displayData,
+  prediction,
+  history,
+  range,
+) {
+  const forwardOverlay = buildPredictionChartOverlay(
+    displayData,
+    prediction,
+    true,
+    range,
+    null,
+    null,
+  );
+
+  if (!displayData?.length || !isPredictionChartRange(range)) {
+    return forwardOverlay;
+  }
+  if (!history?.length) {
+    return forwardOverlay;
   }
 
-  if (!lineConfigs.length) return EMPTY_OVERLAY;
+  const bounds = getHistoricalChartBounds(displayData);
+  if (!bounds) {
+    return forwardOverlay;
+  }
+
+  const { byHour, byDay } = buildPredictionIndex(history);
+  const seriesDefs = getLinkedSeriesDefinitions(range, byHour, byDay);
+  const lastLive = getLastLivePoint(displayData);
+  const pointMap = new Map();
+  const lineConfigs = [];
+
+  seriesDefs.forEach((def, seriesIndex) => {
+    const pastPoints = buildPastCorridorTargetPoints({
+      bounds,
+      byIndex: def.byIndex,
+      horizonMs: def.horizonMs,
+      getCi: def.getCi,
+      ciKeys: def.ciKeys,
+      histKeys: def.histKeys,
+      targetFlag: def.targetFlag,
+    });
+
+    const forwardTarget = (forwardOverlay.points || []).find(
+      (point) => point[def.futureTargetFlag]
+        && typeof point[def.ciKeys.low] === "number"
+        && typeof point[def.ciKeys.high] === "number",
+    );
+
+    let bandSegments;
+    let overlayPoints;
+
+    if (pastPoints.length && forwardTarget) {
+      overlayPoints = [...pastPoints, forwardTarget];
+      bandSegments = [overlayPoints];
+    } else if (pastPoints.length) {
+      overlayPoints = pastPoints;
+      bandSegments = [pastPoints];
+    } else if (forwardTarget && lastLive) {
+      overlayPoints = [
+        buildWedgeAnchorPoint(lastLive, def.ciKeys, seriesIndex),
+        forwardTarget,
+      ];
+      bandSegments = [overlayPoints];
+    } else {
+      return;
+    }
+
+    for (const point of overlayPoints) {
+      const existing = pointMap.get(point.timestamp);
+      pointMap.set(point.timestamp, existing ? { ...existing, ...point } : { ...point });
+    }
+
+    lineConfigs.push({
+      ...def.bandConfig,
+      connectNulls: true,
+      bandSegments,
+    });
+  });
+
+  if (!lineConfigs.length) {
+    return forwardOverlay;
+  }
 
   const points = [...pointMap.values()].sort((a, b) => a.timestamp - b.timestamp);
   return {
     points,
     lineConfigs,
-    predictionWindowEnd: points[points.length - 1]?.timestamp ?? null,
+    predictionWindowEnd: forwardOverlay.predictionWindowEnd
+      ?? points.at(-1)?.timestamp
+      ?? null,
   };
-}
-
-export function mergePredictionOverlays(...overlays) {
-  const points = [];
-  const lineConfigs = [];
-  let predictionWindowEnd = null;
-
-  for (const overlay of overlays) {
-    if (!overlay?.lineConfigs?.length) continue;
-    points.push(...(overlay.points || []));
-    lineConfigs.push(...overlay.lineConfigs);
-    if (overlay.predictionWindowEnd != null) {
-      predictionWindowEnd = predictionWindowEnd == null
-        ? overlay.predictionWindowEnd
-        : Math.max(predictionWindowEnd, overlay.predictionWindowEnd);
-    }
-  }
-
-  if (!lineConfigs.length) return EMPTY_OVERLAY;
-  return { points, lineConfigs, predictionWindowEnd };
 }
 
 export function buildPredictionChartOverlay(
@@ -1020,8 +690,9 @@ export function buildPredictionChartOverlay(
     return build1d1wPredictionOverlay(displayData, prediction);
   }
 
+  // Forward overlays are disabled on long-range charts; use Past predictions for history.
   if (DAILY_ONLY_CHART_RANGES.has(range)) {
-    return buildLongRangeDailyPredictionOverlay(displayData, prediction);
+    return EMPTY_OVERLAY;
   }
 
   return EMPTY_OVERLAY;
@@ -1031,6 +702,16 @@ export function buildPredictionChartOverlay(
  * Merge forecast points into a fresh copy of live chart data.
  * Keeps live updates intact while extending the series to forecast targets.
  */
+function overlayPointTouchesMarketRow(row) {
+  return row.close != null || row.price != null || (row.bid != null && row.ask != null);
+}
+
+function shouldMergeOverlayPoint(row, fp) {
+  if (isPredictionTargetEndpoint(fp)) return true;
+  if (fp.isForecastAnchor && overlayPointTouchesMarketRow(row)) return true;
+  return !overlayPointTouchesMarketRow(row);
+}
+
 export function applyForecastOverlay(displayData, overlay) {
   if (!overlay?.lineConfigs?.length || !overlay?.points?.length) {
     return displayData;
@@ -1041,7 +722,9 @@ export function applyForecastOverlay(displayData, overlay) {
   for (const fp of overlay.points) {
     const idx = rows.findIndex((p) => p.timestamp === fp.timestamp);
     if (idx >= 0) {
-      rows[idx] = { ...rows[idx], ...fp };
+      if (shouldMergeOverlayPoint(rows[idx], fp)) {
+        rows[idx] = { ...rows[idx], ...fp };
+      }
     } else {
       rows.push({ ...fp });
     }
