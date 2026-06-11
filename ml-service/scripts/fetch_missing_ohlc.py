@@ -35,9 +35,9 @@ LOG_EVERY_PAGES = 25
 MAX_RATE_LIMIT_RETRIES = 6
 
 UPSERT_SQL = """
-INSERT INTO ohlc_data (symbol, interval_string, timestamp, open, high, low, close, volume)
-VALUES (:symbol, '1h', :ts, :open, :high, :low, :close, :volume)
-ON CONFLICT (symbol, interval_string, timestamp) DO UPDATE SET
+INSERT INTO ohlc_1m (symbol, bucket, open, high, low, close, volume)
+VALUES (:symbol, to_timestamp(:ts / 1000.0), :open, :high, :low, :close, :volume)
+ON CONFLICT (symbol, bucket) DO UPDATE SET
     open = EXCLUDED.open,
     high = EXCLUDED.high,
     low = EXCLUDED.low,
@@ -146,8 +146,8 @@ def needs_backfill(symbol: str, lookback_days: int) -> tuple[bool, str]:
         """
         SELECT COUNT(*) AS cnt,
                COALESCE(SUM(CASE WHEN volume > 0 THEN 1 ELSE 0 END), 0) AS with_volume,
-               MIN(timestamp) AS min_ts
-        FROM ohlc_data WHERE symbol = :s AND interval_string = '1h'
+               CAST(EXTRACT(EPOCH FROM MIN(bucket)) * 1000 AS BIGINT) AS min_ts
+        FROM ohlc_1h WHERE symbol = :s
         """,
         {"s": symbol},
     )
@@ -258,9 +258,9 @@ def backfill_asset(symbol: str, lookback_days: int | None = None) -> int:
     if target_ms < oldest_recent_ms:
         existing = fetch_one(
             """
-            SELECT MIN(timestamp) AS min_ts
-            FROM ohlc_data
-            WHERE symbol = :s AND interval_string = '1h' AND volume > 0
+            SELECT CAST(EXTRACT(EPOCH FROM MIN(bucket)) * 1000 AS BIGINT) AS min_ts
+            FROM ohlc_1h
+            WHERE symbol = :s AND volume > 0
             """,
             {"s": symbol},
         )

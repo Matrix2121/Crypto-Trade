@@ -202,6 +202,10 @@
   box-sizing: border-box;
 }
 
+.crypto-chart-wrapper .chart-price-line {
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--color-accent-blue) 55%, transparent));
+}
+
 .crypto-chart-wrapper .chart-status {
   position: absolute;
   inset: 0;
@@ -359,36 +363,37 @@
   color: var(--color-accent-blue);
 }
 
-.timeframe-selectors {
+.chart-controls-bar {
+  --chart-controls-label-width: 5.75rem;
+  --chart-controls-row-gap: 0.5rem;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: var(--chart-controls-row-gap);
+  width: 100%;
+}
+
+.chart-controls-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--chart-controls-row-gap);
   width: 100%;
   min-width: 0;
+}
+
+.chart-controls-row .timeframe-selector-row {
+  flex: 1 1 auto;
+  min-width: min(100%, 14rem);
+  width: auto;
 }
 
 .timeframe-selector-row {
   display: flex;
   align-items: flex-start;
-  gap: 0.5rem;
+  gap: var(--chart-controls-row-gap);
   flex-wrap: wrap;
   width: 100%;
   min-width: 0;
-}
-
-.timeframe-selector-row--aggregated {
-  width: 100%;
-}
-
-.timeframe-selector-aggregated-group {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 0.5rem;
-  flex: 1;
-  min-width: 0;
-  width: 100%;
 }
 
 .timeframe-selector--aggregated {
@@ -404,6 +409,8 @@
 
 .timeframe-selector-label {
   flex-shrink: 0;
+  width: var(--chart-controls-label-width);
+  min-width: var(--chart-controls-label-width);
   padding-top: 0.3rem;
   font-size: 0.6875rem;
   font-weight: 700;
@@ -414,10 +421,6 @@
 
 .timeframe-selector-label--live {
   color: var(--color-sell-text);
-}
-
-.timeframe-selector-label--aggregated {
-  min-width: 5.5rem;
 }
 
 .timeframe-selector {
@@ -1124,9 +1127,16 @@
     min-height: 260px;
   }
 
-  .chart-predict-secondary-row {
-    justify-content: flex-start;
-    flex-wrap: wrap;
+  .chart-predict-row {
+    margin-left: 0;
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .chart-mode-toolbar {
+    margin-left: 0;
+    width: 100%;
+    justify-content: flex-end;
   }
 
   .trading-panel {
@@ -1173,28 +1183,15 @@
 
 /* ── Chart controls bar (timeframe row + mode toggles) ──────── */
 
-.chart-controls-bar {
+.chart-mode-toolbar,
+.chart-predict-row {
   display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  width: 100%;
-}
-
-.chart-mode-controls {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0.35rem;
-  width: 100%;
-}
-
-.chart-mode-toolbar {
-  display: flex;
-  flex-direction: row;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: 0.375rem;
-  width: 100%;
+  flex: 0 0 auto;
+  margin-left: auto;
 }
 
 .chart-mode-group {
@@ -1259,22 +1256,7 @@
   cursor: not-allowed;
 }
 
-/* ── AI Predict controls (toolbar + secondary row) ──────────── */
-
-.chart-predict-secondary-row {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.375rem;
-  flex-shrink: 0;
-  min-height: 1.625rem;
-}
-
-.chart-predict-secondary-placeholder {
-  display: block;
-  min-height: 1.625rem;
-  min-width: 1px;
-}
+/* ── AI Predict controls ───────────────────────────────────── */
 
 .btn-ai-predict {
   appearance: none;

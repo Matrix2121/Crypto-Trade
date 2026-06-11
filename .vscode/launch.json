@@ -11,7 +11,7 @@
               "DB_PASSWORD": "root",
               "DB_NAME": "postgres",
               "DB_HOST": "localhost",
-              "DB_PORT": "5433",
+              "DB_PORT": "5434",
               "JWT_SECRET": "change-me-change-me-change-me-change-me-change-me-change-me-32bytes-min",
               "GOOGLE_CLIENT_ID": "569243080322-gcbva79oge5qrbqog892f3uc3554o9qk.apps.googleusercontent.com",
               "ML_SERVICE_URL":"http://localhost:8000"
