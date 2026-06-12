@@ -5,8 +5,9 @@ Kraken exposes at most 720 candles per OHLC request but supports paging with the
 script:
 
   1. Paginates **daily** OHLC (interval 1440) from pair inception -> ``ohlc_1d``
-  2. Paginates **hourly** OHLC (interval 60) from pair inception -> ``ohlc_1m``
-     buckets (feeds the ``ohlc_1h`` continuous aggregate for ML / medium charts)
+  2. (Optional ``--include-hourly-ml``) Hourly OHLC -> ``ohlc_1m`` for ML only.
+     **Not run by default** — hourly rows in ``ohlc_1m`` leave empty :30-:00
+     windows on the 1D chart (which needs true 1-minute data from market sync).
 
 Kraken's public Trades API is only used as a fallback when hourly OHLC paging
 hits the 200-page safety cap (~16 years of hourly candles).
@@ -307,7 +308,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--hourly-only",
         action="store_true",
-        help="Only sync hourly buckets (ohlc_1m -> ohlc_1h CAGG)",
+        help="Only sync hourly buckets (ohlc_1m -> ohlc_1h CAGG); skips daily",
+    )
+    parser.add_argument(
+        "--include-hourly-ml",
+        action="store_true",
+        help="Also sync hourly into ohlc_1m for ML (can break 1D 30m charts; use purge script after)",
     )
     parser.add_argument(
         "--hourly-symbols",
@@ -360,7 +366,13 @@ def main() -> int:
     )
 
     sync_daily_flag = not args.hourly_only and not args.wipe_only
-    sync_hourly_flag = not args.daily_only and not args.wipe_only
+    sync_hourly_flag = (
+        not args.wipe_only
+        and (args.hourly_only or args.include_hourly_ml)
+        and not args.daily_only
+    )
+    if args.hourly_only:
+        sync_daily_flag = False
 
     if (args.wipe or args.wipe_only) and not args.confirm_wipe:
         print("ERROR: --wipe / --wipe-only requires --confirm-wipe", file=sys.stderr)

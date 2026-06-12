@@ -48,6 +48,7 @@ REACT_APP_GOOGLE_CLIENT_ID=<same-as-GOOGLE_CLIENT_ID>
 | `migrate_timescaledb.sh` | Main migration orchestrator |
 | `wipe_ohlc.sh` | Delete OHLC only (keeps users/RAG) |
 | `sync_kraken_history.sh` | Full Kraken history → TimescaleDB |
+| `purge_hourly_stubs_from_1m.sh` | Remove hourly-only rows from `ohlc_1m` (fixes 1D :30 gaps) |
 | `restore_app_data.sh` | Restore users/RAG from a `.dump` file |
 
 Make executable once:

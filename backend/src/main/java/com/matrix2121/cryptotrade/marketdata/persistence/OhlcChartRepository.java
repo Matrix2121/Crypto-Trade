@@ -46,6 +46,41 @@ public class OhlcChartRepository {
         return findCandles(viewName, symbol, Instant.ofEpochMilli(cutoffMs));
     }
 
+    /**
+     * 1D chart: aggregate live {@code ohlc_1m} rows into 30-minute buckets.
+     * Avoids the {@code ohlc_30m} CAGG when it was materialized from hourly stubs
+     * (only :00–:30 filled, :30–:00 empty). Requires dense 1-minute source data
+     * from market sync ({@code HAVING COUNT(*) >= 2} drops isolated hourly rows).
+     */
+    public List<OhlcDto> findThirtyMinuteBucketsFrom1m(String symbol, long cutoffMs) {
+        String sql = """
+                SELECT CAST(EXTRACT(EPOCH FROM time_bucket(INTERVAL '30 minutes', bucket)) * 1000 AS BIGINT) AS ts,
+                       first(open, bucket) AS open,
+                       max(high) AS high,
+                       min(low) AS low,
+                       last(close, bucket) AS close,
+                       sum(volume) AS volume
+                FROM ohlc_1m
+                WHERE symbol = ?
+                  AND bucket >= ?
+                GROUP BY time_bucket(INTERVAL '30 minutes', bucket)
+                HAVING COUNT(*) >= 2
+                ORDER BY ts ASC
+                """;
+
+        return jdbcTemplate.query(
+                sql,
+                (rs, rowNum) -> new OhlcDto(
+                        rs.getLong("ts"),
+                        rs.getBigDecimal("open"),
+                        rs.getBigDecimal("high"),
+                        rs.getBigDecimal("low"),
+                        rs.getBigDecimal("close"),
+                        rs.getBigDecimal("volume")),
+                symbol,
+                Timestamp.from(Instant.ofEpochMilli(cutoffMs)));
+    }
+
     public List<OhlcDto> findAllCandles(String viewName, String symbol) {
         String sql = """
                 SELECT CAST(EXTRACT(EPOCH FROM bucket) * 1000 AS BIGINT) AS ts,

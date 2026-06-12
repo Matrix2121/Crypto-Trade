@@ -67,6 +67,9 @@ if [[ "${DO_SYNC}" -eq 1 ]]; then
   echo ""
   echo "=== Step 7: Sync full Kraken OHLC history (may take 30-90+ min) ==="
   "${SCRIPT_DIR}/sync_kraken_history.sh" "${SYNC_ARGS[@]}"
+  echo ""
+  echo "=== Step 7b: Purge hourly stubs from ohlc_1m (1D chart fix) ==="
+  "${SCRIPT_DIR}/purge_hourly_stubs_from_1m.sh"
 else
   echo ""
   echo "Skipping Kraken sync (pass --sync to run scripts/prod/sync_kraken_history.sh)"
