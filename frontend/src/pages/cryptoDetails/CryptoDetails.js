@@ -832,7 +832,6 @@ function ChartCandleView({
   sharedYAxis,
   sharedTooltip,
   predictionLineConfigs,
-  emphasizePriceLine,
 }) {
   return (
     <ResponsiveContainer width="100%" height="100%">
@@ -859,7 +858,6 @@ function ChartCandleView({
           maxBarSize={range === "1H" ? 8 : 24}
         />
         <PredictionForecastBands lineConfigs={predictionLineConfigs} />
-        <ChartPriceSeries chartType="OHLC" emphasizePriceLine={emphasizePriceLine} />
         <Customized
           component={(props) => (
             <PredictionForecastDots
@@ -883,7 +881,6 @@ ChartCandleView.propTypes = {
   sharedYAxis: PropTypes.func.isRequired,
   sharedTooltip: PropTypes.element.isRequired,
   predictionLineConfigs: PropTypes.array,
-  emphasizePriceLine: PropTypes.bool,
 };
 
 const PRICE_LINE_STROKE = "var(--color-accent-blue)";
@@ -2194,7 +2191,6 @@ const CryptoDetails = () => {
                   predictionLineConfigs={
                     showPredictions ? predictionLineConfigs : []
                   }
-                  emphasizePriceLine={showPredictions && showHistoricalPredictions}
                 />
               )}
 

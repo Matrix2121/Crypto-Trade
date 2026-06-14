@@ -93,38 +93,30 @@ function filterByWindow(data, windowMs) {
 }
 
 /**
- * Insert null OHLC rows for missing buckets so the chart breaks lines at gaps
- * instead of drawing straight segments across missing time.
+ * Snap OHLC candles to the chart bucket grid (Timescale time_bucket boundaries
+ * can differ slightly from raw epoch ms). Returns only real candles — does not
+ * insert null placeholders for every missing bucket, which would break the line
+ * when source data is coarser than the chart interval (e.g. hourly rows shown on
+ * a 30m chart).
  */
 function fillOhlcGaps(candles, bucketMs, windowMs) {
   if (!candles?.length || !bucketMs) return candles;
 
-  const now = Date.now();
-  const alignedEnd = floorToBucketMs(now, bucketMs);
-  const alignedStart = windowMs != null
-    ? floorToBucketMs(now - windowMs, bucketMs)
-    : floorToBucketMs(candles[0].timestamp, bucketMs);
-
-  // Snap to bucket grid so DB bucket timestamps match loop slots (Timescale
-  // time_bucket boundaries may differ slightly from raw epoch ms).
-  const byTs = new Map(
-    candles.map((c) => [floorToBucketMs(c.timestamp, bucketMs), c]),
-  );
-  const result = [];
-
-  for (let ts = alignedStart; ts <= alignedEnd; ts += bucketMs) {
-    const existing = byTs.get(ts);
-    if (existing) {
-      result.push(existing);
-    } else {
-      result.push({
-        timestamp: ts,
-        open: null,
-        high: null,
-        low: null,
-        close: null,
-      });
+  const byBucket = new Map();
+  for (const c of candles) {
+    if (c.close == null && c.open == null) continue;
+    const key = floorToBucketMs(c.timestamp, bucketMs);
+    const existing = byBucket.get(key);
+    if (!existing || c.timestamp >= existing.timestamp) {
+      byBucket.set(key, { ...c, timestamp: key });
     }
+  }
+
+  let result = [...byBucket.values()].sort((a, b) => a.timestamp - b.timestamp);
+
+  if (windowMs != null) {
+    const cutoff = floorToBucketMs(Date.now() - windowMs, bucketMs);
+    result = result.filter((c) => c.timestamp >= cutoff);
   }
 
   return result;

@@ -1,18 +1,23 @@
 import { useCallback, useState } from "react";
 import { apiUrl } from "../config/api";
 
+function authHeaders() {
+  const token = localStorage.getItem("jwt");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export default function useBacktest() {
   const [summary, setSummary] = useState(null);
-  const [drift, setDrift] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const fetchSummary = useCallback(async (asset) => {
+  const fetchSummary = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const qs = asset ? `?asset=${encodeURIComponent(asset)}` : "";
-      const res = await fetch(apiUrl(`/api/predictions/backtest/summary${qs}`));
+      const res = await fetch(apiUrl("/api/predictions/backtest/summary"), {
+        headers: authHeaders(),
+      });
       if (!res.ok) throw new Error("Failed to load backtest summary");
       const data = await res.json();
       setSummary(data);
@@ -30,19 +35,19 @@ export default function useBacktest() {
   const fetchDrift = useCallback(async (symbol, days = 7) => {
     try {
       const res = await fetch(
-        apiUrl(`/api/predictions/backtest/drift/${encodeURIComponent(symbol)}?days=${days}`)
+        apiUrl(
+          `/api/predictions/backtest/drift/${encodeURIComponent(symbol)}?days=${days}`
+        ),
+        { headers: authHeaders() }
       );
       if (!res.ok) return [];
       const data = await res.json();
-      const rows = Array.isArray(data) ? data : [];
-      setDrift(rows);
-      return rows;
+      return Array.isArray(data) ? data : [];
     } catch (err) {
       console.error("Backtest drift fetch error:", err);
-      setDrift([]);
       return [];
     }
   }, []);
 
-  return { summary, drift, loading, error, fetchSummary, fetchDrift };
+  return { summary, loading, error, fetchSummary, fetchDrift };
 }

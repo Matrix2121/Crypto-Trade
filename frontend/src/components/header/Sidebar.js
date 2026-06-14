@@ -14,7 +14,11 @@ const MAIN_NAV = { to: "/market", label: "Market", icon: "📈" };
 const OTHER_NAV = [
   { to: "/portfolio", label: "Portfolio", icon: "💼" },
   { to: "/transactions", label: "Transactions", icon: "🧾" },
+];
+
+const ADMIN_NAV = [
   { to: "/backtesting", label: "Backtesting", icon: "📊" },
+  { to: "/admin", label: "Admin", icon: "⚙️" },
 ];
 
 function SidebarCryptoLink({ code, isFavorite, isActive, isExpanded, onNavigate }) {
@@ -153,21 +157,23 @@ const Sidebar = ({ mobileOpen = false, onMobileClose }) => {
             </NavLink>
           ))}
 
-          {user?.isAdmin && (
-            <NavLink
-              to="/admin"
-              className={({ isActive }) =>
-                `sidebar-link${isActive ? " active" : ""}`
-              }
-              title={showLabels ? undefined : "Admin"}
-              onClick={handleNavigate}
-            >
-              <span className="sidebar-icon" aria-hidden="true">
-                ⚙️
-              </span>
-              {showLabels && <span className="sidebar-label">Admin</span>}
-            </NavLink>
-          )}
+          {user?.isAdmin &&
+            ADMIN_NAV.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={({ isActive }) =>
+                  `sidebar-link${isActive ? " active" : ""}`
+                }
+                title={showLabels ? undefined : item.label}
+                onClick={handleNavigate}
+              >
+                <span className="sidebar-icon" aria-hidden="true">
+                  {item.icon}
+                </span>
+                {showLabels && <span className="sidebar-label">{item.label}</span>}
+              </NavLink>
+            ))}
         </nav>
       </div>
 
