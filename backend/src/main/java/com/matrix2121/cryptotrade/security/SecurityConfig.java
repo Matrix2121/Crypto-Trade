@@ -30,6 +30,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/predictions/backtest/**").hasRole("ADMIN")
                         .requestMatchers(
                                 "/api/auth/google",
                                 "/api/prices",
@@ -47,12 +48,15 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         
-        // Add your live domains to the VIP list
-        config.setAllowedOrigins(List.of(
-            "http://localhost:3000", 
-            "http://noqtrade.com", 
+        // Web dev, Capacitor WebView origins, and deployed site domains
+        config.setAllowedOriginPatterns(List.of(
+            "http://localhost:*",
+            "https://localhost",
+            "capacitor://localhost",
+            "ionic://localhost",
+            "http://noqtrade.com",
             "http://www.noqtrade.com",
-            "https://noqtrade.com",     // Added in advance for when we do SSL!
+            "https://noqtrade.com",
             "https://www.noqtrade.com"
         ));
         

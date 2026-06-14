@@ -10,6 +10,7 @@
 --   pg_dump restore                           — full DB clone (OHLC, users, etc.)
 --
 -- Version: see schema.version (applied by scripts/db_migrate.sh on deploy).
+-- v2: TimescaleDB hypertables + continuous aggregates for OHLC (replaces ohlc_data).
 -- Docker: mounted as docker-entrypoint-initdb.d/01_schema.sql (fresh volume only).
 -- Existing DB: scripts/db_migrate.sh (backs up, then applies this file if needed).
 -- =============================================================================
@@ -17,6 +18,7 @@
 -- -----------------------------------------------------------------------------
 -- Extensions
 -- -----------------------------------------------------------------------------
+CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;
 CREATE EXTENSION IF NOT EXISTS vector;
 
 -- -----------------------------------------------------------------------------
@@ -70,25 +72,210 @@ CREATE INDEX IF NOT EXISTS idx_user_favorite_user_sort
     ON user_favorite (user_id, sort_order);
 
 -- -----------------------------------------------------------------------------
--- Market data: OHLC candles (JPA OhlcData entity)
+-- Market data: TimescaleDB OHLC hypertables + continuous aggregates
 -- -----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS ohlc_data (
-    id              BIGSERIAL PRIMARY KEY,
-    symbol          VARCHAR(32)  NOT NULL,
-    interval_string VARCHAR(8)   NOT NULL,
-    timestamp       BIGINT       NOT NULL,
-    open            NUMERIC(24, 8) NOT NULL,
-    high            NUMERIC(24, 8) NOT NULL,
-    low             NUMERIC(24, 8) NOT NULL,
-    close           NUMERIC(24, 8) NOT NULL,
-    volume          NUMERIC(24, 8) NOT NULL DEFAULT 0,
-    CONSTRAINT uk_ohlc_symbol_interval_timestamp UNIQUE (symbol, interval_string, timestamp)
+
+-- Tear down legacy single-table model (v1)
+DROP MATERIALIZED VIEW IF EXISTS ohlc_1mo CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS ohlc_5d CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS ohlc_8h CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS ohlc_4h CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS ohlc_2h CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS ohlc_1h CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS ohlc_30m CASCADE;
+DROP TABLE IF EXISTS ohlc_1d CASCADE;
+DROP TABLE IF EXISTS ohlc_1m CASCADE;
+DROP TABLE IF EXISTS ohlc_data CASCADE;
+
+CREATE TABLE ohlc_1m (
+    symbol  VARCHAR(32)     NOT NULL,
+    bucket  TIMESTAMPTZ     NOT NULL,
+    open    NUMERIC(24, 8)  NOT NULL,
+    high    NUMERIC(24, 8)  NOT NULL,
+    low     NUMERIC(24, 8)  NOT NULL,
+    close   NUMERIC(24, 8)  NOT NULL,
+    volume  NUMERIC(24, 8)  NOT NULL DEFAULT 0,
+    PRIMARY KEY (symbol, bucket)
 );
 
-CREATE INDEX IF NOT EXISTS idx_ohlc_symbol ON ohlc_data (symbol);
-CREATE INDEX IF NOT EXISTS idx_ohlc_interval_string ON ohlc_data (interval_string);
-CREATE INDEX IF NOT EXISTS idx_ohlc_timestamp ON ohlc_data (timestamp);
-CREATE INDEX IF NOT EXISTS idx_ohlc_symbol_interval ON ohlc_data (symbol, interval_string);
+SELECT create_hypertable('ohlc_1m', 'bucket',
+    chunk_time_interval => INTERVAL '1 day',
+    if_not_exists => TRUE);
+
+CREATE INDEX IF NOT EXISTS idx_ohlc_1m_symbol_bucket ON ohlc_1m (symbol, bucket DESC);
+
+SELECT add_retention_policy('ohlc_1m', INTERVAL '2 days', if_not_exists => TRUE);
+
+CREATE TABLE ohlc_1d (
+    symbol  VARCHAR(32)     NOT NULL,
+    bucket  TIMESTAMPTZ     NOT NULL,
+    open    NUMERIC(24, 8)  NOT NULL,
+    high    NUMERIC(24, 8)  NOT NULL,
+    low     NUMERIC(24, 8)  NOT NULL,
+    close   NUMERIC(24, 8)  NOT NULL,
+    volume  NUMERIC(24, 8)  NOT NULL DEFAULT 0,
+    PRIMARY KEY (symbol, bucket)
+);
+
+SELECT create_hypertable('ohlc_1d', 'bucket',
+    chunk_time_interval => INTERVAL '30 days',
+    if_not_exists => TRUE);
+
+CREATE INDEX IF NOT EXISTS idx_ohlc_1d_symbol_bucket ON ohlc_1d (symbol, bucket DESC);
+
+-- Continuous aggregates derived from 1m base data
+CREATE MATERIALIZED VIEW ohlc_30m
+WITH (timescaledb.continuous) AS
+SELECT
+    symbol,
+    time_bucket(INTERVAL '30 minutes', bucket) AS bucket,
+    first(open, bucket) AS open,
+    max(high) AS high,
+    min(low) AS low,
+    last(close, bucket) AS close,
+    sum(volume) AS volume
+FROM ohlc_1m
+GROUP BY symbol, time_bucket(INTERVAL '30 minutes', bucket)
+WITH NO DATA;
+
+CREATE MATERIALIZED VIEW ohlc_1h
+WITH (timescaledb.continuous) AS
+SELECT
+    symbol,
+    time_bucket(INTERVAL '1 hour', bucket) AS bucket,
+    first(open, bucket) AS open,
+    max(high) AS high,
+    min(low) AS low,
+    last(close, bucket) AS close,
+    sum(volume) AS volume
+FROM ohlc_1m
+GROUP BY symbol, time_bucket(INTERVAL '1 hour', bucket)
+WITH NO DATA;
+
+CREATE MATERIALIZED VIEW ohlc_2h
+WITH (timescaledb.continuous) AS
+SELECT
+    symbol,
+    time_bucket(INTERVAL '2 hours', bucket) AS bucket,
+    first(open, bucket) AS open,
+    max(high) AS high,
+    min(low) AS low,
+    last(close, bucket) AS close,
+    sum(volume) AS volume
+FROM ohlc_1m
+GROUP BY symbol, time_bucket(INTERVAL '2 hours', bucket)
+WITH NO DATA;
+
+CREATE MATERIALIZED VIEW ohlc_4h
+WITH (timescaledb.continuous) AS
+SELECT
+    symbol,
+    time_bucket(INTERVAL '4 hours', bucket) AS bucket,
+    first(open, bucket) AS open,
+    max(high) AS high,
+    min(low) AS low,
+    last(close, bucket) AS close,
+    sum(volume) AS volume
+FROM ohlc_1m
+GROUP BY symbol, time_bucket(INTERVAL '4 hours', bucket)
+WITH NO DATA;
+
+CREATE MATERIALIZED VIEW ohlc_8h
+WITH (timescaledb.continuous) AS
+SELECT
+    symbol,
+    time_bucket(INTERVAL '8 hours', bucket) AS bucket,
+    first(open, bucket) AS open,
+    max(high) AS high,
+    min(low) AS low,
+    last(close, bucket) AS close,
+    sum(volume) AS volume
+FROM ohlc_1m
+GROUP BY symbol, time_bucket(INTERVAL '8 hours', bucket)
+WITH NO DATA;
+
+-- Continuous aggregates derived from 1d base data
+CREATE MATERIALIZED VIEW ohlc_5d
+WITH (timescaledb.continuous) AS
+SELECT
+    symbol,
+    time_bucket(INTERVAL '5 days', bucket) AS bucket,
+    first(open, bucket) AS open,
+    max(high) AS high,
+    min(low) AS low,
+    last(close, bucket) AS close,
+    sum(volume) AS volume
+FROM ohlc_1d
+GROUP BY symbol, time_bucket(INTERVAL '5 days', bucket)
+WITH NO DATA;
+
+CREATE MATERIALIZED VIEW ohlc_1mo
+WITH (timescaledb.continuous) AS
+SELECT
+    symbol,
+    time_bucket(INTERVAL '30 days', bucket) AS bucket,
+    first(open, bucket) AS open,
+    max(high) AS high,
+    min(low) AS low,
+    last(close, bucket) AS close,
+    sum(volume) AS volume
+FROM ohlc_1d
+GROUP BY symbol, time_bucket(INTERVAL '30 days', bucket)
+WITH NO DATA;
+
+-- Real-time aggregates: include latest partial buckets from raw hypertable
+ALTER MATERIALIZED VIEW ohlc_30m SET (timescaledb.materialized_only = false);
+ALTER MATERIALIZED VIEW ohlc_1h SET (timescaledb.materialized_only = false);
+ALTER MATERIALIZED VIEW ohlc_2h SET (timescaledb.materialized_only = false);
+ALTER MATERIALIZED VIEW ohlc_4h SET (timescaledb.materialized_only = false);
+ALTER MATERIALIZED VIEW ohlc_8h SET (timescaledb.materialized_only = false);
+ALTER MATERIALIZED VIEW ohlc_5d SET (timescaledb.materialized_only = false);
+ALTER MATERIALIZED VIEW ohlc_1mo SET (timescaledb.materialized_only = false);
+
+-- Refresh policies (1m-derived CAGGs)
+SELECT add_continuous_aggregate_policy('ohlc_30m',
+    start_offset => INTERVAL '3 hours',
+    end_offset => INTERVAL '1 minute',
+    schedule_interval => INTERVAL '1 minute',
+    if_not_exists => TRUE);
+SELECT add_continuous_aggregate_policy('ohlc_1h',
+    start_offset => INTERVAL '6 hours',
+    end_offset => INTERVAL '1 minute',
+    schedule_interval => INTERVAL '1 minute',
+    if_not_exists => TRUE);
+SELECT add_continuous_aggregate_policy('ohlc_2h',
+    start_offset => INTERVAL '12 hours',
+    end_offset => INTERVAL '1 minute',
+    schedule_interval => INTERVAL '5 minutes',
+    if_not_exists => TRUE);
+SELECT add_continuous_aggregate_policy('ohlc_4h',
+    start_offset => INTERVAL '2 days',
+    end_offset => INTERVAL '1 minute',
+    schedule_interval => INTERVAL '5 minutes',
+    if_not_exists => TRUE);
+SELECT add_continuous_aggregate_policy('ohlc_8h',
+    start_offset => INTERVAL '4 days',
+    end_offset => INTERVAL '1 minute',
+    schedule_interval => INTERVAL '5 minutes',
+    if_not_exists => TRUE);
+
+-- Refresh policies (1d-derived CAGGs)
+SELECT add_continuous_aggregate_policy('ohlc_5d',
+    start_offset => INTERVAL '60 days',
+    end_offset => INTERVAL '1 day',
+    schedule_interval => INTERVAL '1 hour',
+    if_not_exists => TRUE);
+SELECT add_continuous_aggregate_policy('ohlc_1mo',
+    start_offset => INTERVAL '400 days',
+    end_offset => INTERVAL '1 day',
+    schedule_interval => INTERVAL '1 hour',
+    if_not_exists => TRUE);
+
+-- Retention on continuous aggregates
+SELECT add_retention_policy('ohlc_2h', INTERVAL '8 days', if_not_exists => TRUE);
+SELECT add_retention_policy('ohlc_4h', INTERVAL '40 days', if_not_exists => TRUE);
+SELECT add_retention_policy('ohlc_8h', INTERVAL '40 days', if_not_exists => TRUE);
+SELECT add_retention_policy('ohlc_5d', INTERVAL '380 days', if_not_exists => TRUE);
 
 -- -----------------------------------------------------------------------------
 -- Market stats cache (JPA TrackedAsset entity)
@@ -428,7 +615,6 @@ $$;
 -- Idempotent column upgrades (DBs created before schema consolidation)
 -- -----------------------------------------------------------------------------
 ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FALSE;
-ALTER TABLE ohlc_data ADD COLUMN IF NOT EXISTS volume NUMERIC(24, 8) NOT NULL DEFAULT 0;
 ALTER TABLE predictions ADD COLUMN IF NOT EXISTS ml_1h_price NUMERIC(24, 8);
 ALTER TABLE predictions ADD COLUMN IF NOT EXISTS ml_1h_ci_low NUMERIC(24, 8);
 ALTER TABLE predictions ADD COLUMN IF NOT EXISTS ml_1h_ci_high NUMERIC(24, 8);
@@ -445,5 +631,5 @@ CREATE TABLE IF NOT EXISTS schema_meta (
 
 -- Seed version on first init (db-migrate upgrades this when schema.version bumps)
 INSERT INTO schema_meta (id, version, applied_at)
-VALUES (1, 1, NOW())
+VALUES (1, 2, NOW())
 ON CONFLICT (id) DO NOTHING;

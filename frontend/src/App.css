@@ -16,6 +16,7 @@
   overflow-y: auto;
   overflow-x: hidden;
   background: var(--color-bg-base);
+  padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
 .app-routes {
@@ -43,8 +44,24 @@
     top: 0;
     z-index: 90;
     padding: 0.65rem 0.85rem;
+    padding-top: calc(0.65rem + env(safe-area-inset-top, 0));
     background: var(--color-bg-page);
     border-bottom: 1px solid var(--color-border-default);
+  }
+
+  .mobile-topbar-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+
+  .mobile-topbar-logo {
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    object-fit: contain;
+    border-radius: 6px;
   }
 
   .mobile-menu-btn {

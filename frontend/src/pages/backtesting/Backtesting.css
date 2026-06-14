@@ -8,19 +8,6 @@
   margin-bottom: 1.5rem;
 }
 
-.backtest-controls {
-  margin-bottom: 1rem;
-}
-
-.backtest-controls select {
-  margin-left: 0.5rem;
-  padding: 0.35rem 0.5rem;
-  background: var(--color-bg-panel);
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  color: inherit;
-}
-
 .backtest-table-wrap {
   overflow-x: auto;
   margin-bottom: 2rem;
@@ -46,6 +33,21 @@
   color: var(--color-text-muted);
 }
 
+.drift-section {
+  margin-top: 0.5rem;
+}
+
+.drift-section > h3 {
+  margin: 0 0 1rem;
+  font-size: 1.1rem;
+}
+
+.drift-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1rem;
+}
+
 .drift-panel {
   background: var(--color-bg-panel);
   border: 1px solid var(--color-border);
@@ -53,12 +55,32 @@
   padding: 1rem 1.25rem;
 }
 
-.drift-panel h3 {
+.drift-panel h4 {
   margin: 0 0 1rem;
-  font-size: 1rem;
+  font-size: 0.95rem;
 }
 
 .drift-empty {
   color: var(--color-text-muted);
   font-size: 0.875rem;
+}
+
+@media (max-width: 768px) {
+  .backtesting-page {
+    padding: 0.65rem;
+  }
+
+  .backtesting-page h2 {
+    font-size: 1.35rem;
+  }
+
+  .backtest-table th,
+  .backtest-table td {
+    padding: 0.5rem 0.65rem;
+    white-space: nowrap;
+  }
+
+  .drift-panel {
+    padding: 0.75rem;
+  }
 }

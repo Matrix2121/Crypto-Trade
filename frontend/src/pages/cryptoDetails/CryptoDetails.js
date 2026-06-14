@@ -51,16 +51,14 @@ import usePredictions from "../../hooks/usePredictions";
 import PredictionPanel from "../../components/PredictionPanel";
 import {
   applyForecastOverlay,
-  buildHistoricalPredictionOverlay,
+  buildCombinedPredictionOverlay,
   buildPredictionChartOverlay,
   collectForecastPrices,
   getPredictionFilterLabel,
   HISTORY_FETCH_LIMIT,
   HISTORICAL_CI_KEYS,
   isPredictionChartRange,
-  mergePredictionOverlays,
   msUntilNextHourlyPredictionRefresh,
-  isPredictionEndpoint,
   isPredictionTargetEndpoint,
   FORECAST_CI_KEYS,
   PREDICTION_LINE_KEYS,
@@ -370,10 +368,14 @@ function renderMarketTooltipBody(point) {
   return null;
 }
 
-function renderForecastCiTooltipRow(key, label, point, ciKeys) {
+function renderForecastCiTooltipRow(key, label, point, ciKeys, requiredFlag) {
+  if (point.isForecastAnchor) return null;
+  if (requiredFlag && !point[requiredFlag]) return null;
+
   const low = point[ciKeys.low];
   const high = point[ciKeys.high];
   if (typeof low !== "number" || typeof high !== "number") return null;
+  if (low === high) return null;
 
   return (
     <span key={key}>
@@ -387,18 +389,18 @@ function renderForecastTooltipBody(point) {
   const rows = [];
 
   const ciRows = [
-    ["future-target", "Model hourly CI", FORECAST_CI_KEYS[FUTURE]],
-    ["hist-future", "Past model hourly CI", HISTORICAL_CI_KEYS[FUTURE]],
-    ["hourly", "Model hourly CI", FORECAST_CI_KEYS[HOURLY]],
-    ["hist-hourly", "Past model hourly CI", HISTORICAL_CI_KEYS[HOURLY]],
-    ["daily", "Model daily CI", FORECAST_CI_KEYS[DAILY]],
-    ["hist-daily", "Past model daily CI", HISTORICAL_CI_KEYS[DAILY]],
-    ["context-aware", "Context-aware CI", FORECAST_CI_KEYS[CONTEXT_AWARE]],
-    ["hist-context-aware", "Past context-aware CI", HISTORICAL_CI_KEYS[CONTEXT_AWARE]],
+    ["future-target", "Model hourly CI", FORECAST_CI_KEYS[FUTURE], "isFutureTarget"],
+    ["hist-future", "Past model hourly CI", HISTORICAL_CI_KEYS[FUTURE], "isHistoricalFutureTarget"],
+    ["hourly", "Model hourly CI", FORECAST_CI_KEYS[HOURLY], "isHourlyFutureTarget"],
+    ["hist-hourly", "Past model hourly CI", HISTORICAL_CI_KEYS[HOURLY], "isHistoricalHourlyTarget"],
+    ["daily", "Model daily CI", FORECAST_CI_KEYS[DAILY], "isDailyFutureTarget"],
+    ["hist-daily", "Past model daily CI", HISTORICAL_CI_KEYS[DAILY], "isHistoricalDailyTarget"],
+    ["context-aware", "Context-aware CI", FORECAST_CI_KEYS[CONTEXT_AWARE], "isContextAwareFutureTarget"],
+    ["hist-context-aware", "Past context-aware CI", HISTORICAL_CI_KEYS[CONTEXT_AWARE], "isHistoricalContextAwareTarget"],
   ];
 
-  for (const [key, label, ciKeys] of ciRows) {
-    const row = renderForecastCiTooltipRow(key, label, point, ciKeys);
+  for (const [key, label, ciKeys, requiredFlag] of ciRows) {
+    const row = renderForecastCiTooltipRow(key, label, point, ciKeys, requiredFlag);
     if (row) rows.push(row);
   }
 
@@ -756,7 +758,7 @@ function PredictionForecastDots({
     const { ciLowKey, ciHighKey, stroke } = cfg;
 
     for (const point of chartData) {
-      if (!isPredictionEndpoint(point)) continue;
+      if (!isPredictionTargetEndpoint(point)) continue;
 
       const low = point[ciLowKey];
       const high = point[ciHighKey];
@@ -881,6 +883,110 @@ ChartCandleView.propTypes = {
   predictionLineConfigs: PropTypes.array,
 };
 
+const PRICE_LINE_STROKE = "var(--color-accent-blue)";
+
+function ChartPriceSeries({ chartType, lineMode, hasSpreadData, emphasizePriceLine }) {
+  const showSpread = lineMode === "spread" && hasSpreadData;
+  const dataKey = chartType === "OHLC" ? "close" : "price";
+  const seriesName = chartType === "OHLC" ? "Close" : "Price";
+  const activeDot = emphasizePriceLine
+    ? {
+        r: 4.5,
+        fill: PRICE_LINE_STROKE,
+        stroke: "var(--color-bg-page, #fff)",
+        strokeWidth: 2,
+      }
+    : { r: 3, fill: PRICE_LINE_STROKE };
+
+  if (showSpread) {
+    return (
+      <>
+        <Line
+          type="monotone"
+          dataKey="ask"
+          name="Ask"
+          stroke="var(--color-buy-text, #ef4444)"
+          strokeWidth={2}
+          dot={false}
+          isAnimationActive={false}
+          activeDot={{ r: 3, fill: "var(--color-buy-text, #ef4444)" }}
+          connectNulls
+        />
+        <Line
+          type="monotone"
+          dataKey="bid"
+          name="Bid"
+          stroke="var(--color-sell-text, #22c55e)"
+          strokeWidth={2}
+          dot={false}
+          isAnimationActive={false}
+          activeDot={{ r: 3, fill: "var(--color-sell-text, #22c55e)" }}
+          connectNulls
+        />
+      </>
+    );
+  }
+
+  if (emphasizePriceLine) {
+    return (
+      <>
+        <Line
+          type="monotone"
+          dataKey={dataKey}
+          stroke={PRICE_LINE_STROKE}
+          strokeWidth={8}
+          strokeOpacity={0.2}
+          dot={false}
+          isAnimationActive={false}
+          legendType="none"
+          connectNulls={false}
+        />
+        <Line
+          type="monotone"
+          dataKey={dataKey}
+          name={seriesName}
+          className="chart-price-line"
+          stroke={PRICE_LINE_STROKE}
+          strokeWidth={3}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          dot={false}
+          isAnimationActive={false}
+          activeDot={activeDot}
+          connectNulls={false}
+        />
+      </>
+    );
+  }
+
+  return (
+    <Line
+      type="monotone"
+      dataKey={dataKey}
+      name={seriesName}
+      stroke={PRICE_LINE_STROKE}
+      strokeWidth={2}
+      dot={false}
+      isAnimationActive={false}
+      activeDot={activeDot}
+      connectNulls={false}
+    />
+  );
+}
+
+ChartPriceSeries.propTypes = {
+  chartType: PropTypes.string.isRequired,
+  lineMode: PropTypes.string,
+  hasSpreadData: PropTypes.bool,
+  emphasizePriceLine: PropTypes.bool,
+};
+
+ChartPriceSeries.defaultProps = {
+  lineMode: "mid",
+  hasSpreadData: false,
+  emphasizePriceLine: false,
+};
+
 function ChartLineView({
   displayData,
   range,
@@ -891,8 +997,8 @@ function ChartLineView({
   sharedYAxis,
   sharedTooltip,
   predictionLineConfigs,
+  emphasizePriceLine,
 }) {
-  const showSpread = lineMode === "spread" && hasSpreadData;
   return (
     <ResponsiveContainer width="100%" height="100%">
       <ComposedChart
@@ -911,44 +1017,13 @@ function ChartLineView({
             />
           )}
         />
-        {showSpread ? (
-          <>
-            <Line
-              type="monotone"
-              dataKey="ask"
-              name="Ask"
-              stroke="var(--color-buy-text, #ef4444)"
-              strokeWidth={1.5}
-              dot={false}
-              isAnimationActive={false}
-              activeDot={{ r: 2, fill: "var(--color-buy-text, #ef4444)" }}
-              connectNulls
-            />
-            <Line
-              type="monotone"
-              dataKey="bid"
-              name="Bid"
-              stroke="var(--color-sell-text, #22c55e)"
-              strokeWidth={1.5}
-              dot={false}
-              isAnimationActive={false}
-              activeDot={{ r: 2, fill: "var(--color-sell-text, #22c55e)" }}
-              connectNulls
-            />
-          </>
-        ) : (
-          <Line
-            type="monotone"
-            dataKey={chartType === "OHLC" ? "close" : "price"}
-            name={chartType === "OHLC" ? "Close" : "Price"}
-            stroke="var(--color-accent-blue)"
-            strokeWidth={2}
-            dot={false}
-            isAnimationActive={false}
-            activeDot={{ r: 3, fill: "var(--color-accent-blue)" }}
-          />
-        )}
         <PredictionForecastBands lineConfigs={predictionLineConfigs} />
+        <ChartPriceSeries
+          chartType={chartType}
+          lineMode={lineMode}
+          hasSpreadData={hasSpreadData}
+          emphasizePriceLine={emphasizePriceLine}
+        />
         <Customized
           component={(props) => (
             <PredictionForecastDots
@@ -973,6 +1048,7 @@ ChartLineView.propTypes = {
   sharedYAxis: PropTypes.func.isRequired,
   sharedTooltip: PropTypes.element.isRequired,
   predictionLineConfigs: PropTypes.array,
+  emphasizePriceLine: PropTypes.bool,
 };
 
 function StatsDashboard({
@@ -1684,19 +1760,6 @@ const CryptoDetails = () => {
     loadPredictions(predictionPath, limit);
   }, [showPredictions, canPredict, range, predictionPath, loadPredictions]);
 
-  useEffect(() => {
-    if (!showPredictions || !showHistoricalPredictions || !canPredict) return;
-    const limit = HISTORY_FETCH_LIMIT[range] ?? 50;
-    loadPredictions(predictionPath, limit);
-  }, [
-    showPredictions,
-    showHistoricalPredictions,
-    canPredict,
-    range,
-    predictionPath,
-    loadPredictions,
-  ]);
-
   const handlePredictToggle = async () => {
     if (showPredictions) {
       setShowPredictions(false);
@@ -1724,7 +1787,16 @@ const CryptoDetails = () => {
       return { points: [], lineConfigs: [], predictionWindowEnd: null };
     }
 
-    const forwardOverlay = buildPredictionChartOverlay(
+    if (showHistoricalPredictions && predictionHistory?.length) {
+      return buildCombinedPredictionOverlay(
+        displayData,
+        prediction,
+        predictionHistory,
+        range,
+      );
+    }
+
+    return buildPredictionChartOverlay(
       displayData,
       prediction,
       true,
@@ -1732,12 +1804,6 @@ const CryptoDetails = () => {
       chartMode,
       chartType,
     );
-
-    const historicalOverlay = showHistoricalPredictions
-      ? buildHistoricalPredictionOverlay(displayData, predictionHistory, range)
-      : { points: [], lineConfigs: [], predictionWindowEnd: null };
-
-    return mergePredictionOverlays(historicalOverlay, forwardOverlay);
   }, [
     displayData,
     prediction,
@@ -1762,17 +1828,17 @@ const CryptoDetails = () => {
       getPredictionFilterLabel(
         showPredictions && canPredict,
         range,
-        prediction,
         predictionLineConfigs.length > 0,
         predictionWindowEnd,
+        showHistoricalPredictions,
       ),
     [
       showPredictions,
       canPredict,
       range,
-      prediction,
       predictionLineConfigs.length,
       predictionWindowEnd,
+      showHistoricalPredictions,
     ],
   );
 
@@ -1826,15 +1892,26 @@ const CryptoDetails = () => {
   const currentMidPrice =
     bid != null && ask != null ? (bid + ask) / 2 : (bid ?? ask);
 
+  const chartXDomain = useMemo(() => {
+    if (!displayData.length) return ["dataMin", "dataMax"];
+    const min = displayData[0].timestamp;
+    const max = Math.max(
+      displayData[displayData.length - 1].timestamp,
+      predictionWindowEnd ?? 0,
+    );
+    return [min, max];
+  }, [displayData, predictionWindowEnd]);
+
   // Y-axis bounds for the candle chart (with 4% padding each side).
   const candleYBounds = useMemo(() => {
     if (chartMode !== "candle" || chartRenderData.length === 0) return null;
-    const first = chartRenderData[0];
-    if (first.high == null) return null;
-    const lows = chartRenderData.map((d) => d.low).filter((v) => v != null);
-    const highs = chartRenderData.map((d) => d.high).filter((v) => v != null);
+    const ohlcRows = chartRenderData.filter(
+      (d) => d.high != null && d.low != null,
+    );
+    if (!ohlcRows.length) return null;
+    const lows = ohlcRows.map((d) => d.low);
+    const highs = ohlcRows.map((d) => d.high);
     const forecastPrices = collectForecastPrices(chartRenderData);
-    if (!lows.length || !highs.length) return null;
     const minLow = Math.min(...lows, ...forecastPrices);
     const maxHigh = Math.max(...highs, ...forecastPrices);
     const pad = (maxHigh - minLow) * 0.04;
@@ -1864,7 +1941,7 @@ const CryptoDetails = () => {
       dataKey="timestamp"
       type="number"
       scale="time"
-      domain={["dataMin", "dataMax"]}
+      domain={chartXDomain}
       axisLine={false}
       tickLine={false}
       minTickGap={60}
@@ -1939,12 +2016,12 @@ const CryptoDetails = () => {
           <section className="chart-section" aria-label="Live price chart">
             {/* ── Timeframe + chart-mode controls ── */}
             <div className="chart-controls-bar">
-              <div
-                className="timeframe-selectors"
-                role="tablist"
-                aria-label="Chart timeframe"
-              >
-                <div className="timeframe-selector-row">
+              <div className="chart-controls-row">
+                <div
+                  className="timeframe-selector-row"
+                  role="tablist"
+                  aria-label="Live chart timeframe"
+                >
                   <span className="timeframe-selector-label timeframe-selector-label--live">
                     Live:
                   </span>
@@ -1963,49 +2040,8 @@ const CryptoDetails = () => {
                     ))}
                   </div>
                 </div>
-                <div className="timeframe-selector-row timeframe-selector-row--aggregated">
-                  <div className="timeframe-selector-aggregated-group">
-                    <span className="timeframe-selector-label">
-                      Aggregated:
-                    </span>
-                    <div className="timeframe-selector timeframe-selector--aggregated">
-                      {AGGREGATED_CHART_RANGE_OPTIONS.map(({ value, label }) => (
-                        <button
-                          key={value}
-                          type="button"
-                          role="tab"
-                          className={`timeframe-btn${range === value ? " active" : ""}`}
-                          onClick={() => setRange(value)}
-                          aria-selected={range === value}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
 
-              <div className="chart-mode-controls">
                 <div className="chart-mode-toolbar">
-                  <fieldset className="chart-mode-group">
-                    <legend className="chart-mode-legend">Chart type</legend>
-                    <button
-                      type="button"
-                      className={`chart-mode-btn${chartMode === "line" ? " active" : ""}`}
-                      onClick={() => setChartMode("line")}
-                    >
-                      Line
-                    </button>
-                    <button
-                      type="button"
-                      className={`chart-mode-btn${chartMode === "candle" ? " active" : ""}`}
-                      onClick={() => setChartMode("candle")}
-                    >
-                      Candle
-                    </button>
-                  </fieldset>
-
                   {chartMode === "line" && (
                     <fieldset className="chart-mode-group">
                       <legend className="chart-mode-legend">Line mode</legend>
@@ -2034,22 +2070,54 @@ const CryptoDetails = () => {
                     </fieldset>
                   )}
 
-                  {canPredict && (
+                  <fieldset className="chart-mode-group">
+                    <legend className="chart-mode-legend">Chart type</legend>
                     <button
                       type="button"
-                      className={`btn-ai-predict${showPredictions ? " active" : ""}`}
-                      onClick={handlePredictToggle}
-                      disabled={predictionLoading}
-                      aria-pressed={showPredictions}
+                      className={`chart-mode-btn${chartMode === "line" ? " active" : ""}`}
+                      onClick={() => setChartMode("line")}
                     >
-                      ✦ AI Predict{predictionLoading ? " …" : ""}
+                      Line
                     </button>
-                  )}
+                    <button
+                      type="button"
+                      className={`chart-mode-btn${chartMode === "candle" ? " active" : ""}`}
+                      onClick={() => setChartMode("candle")}
+                    >
+                      Candle
+                    </button>
+                  </fieldset>
+                </div>
+              </div>
+
+              <div className="chart-controls-row">
+                <div
+                  className="timeframe-selector-row"
+                  role="tablist"
+                  aria-label="Aggregated chart timeframe"
+                >
+                  <span className="timeframe-selector-label timeframe-selector-label--aggregated">
+                    Aggregated:
+                  </span>
+                  <div className="timeframe-selector timeframe-selector--aggregated">
+                    {AGGREGATED_CHART_RANGE_OPTIONS.map(({ value, label }) => (
+                      <button
+                        key={value}
+                        type="button"
+                        role="tab"
+                        className={`timeframe-btn${range === value ? " active" : ""}`}
+                        onClick={() => setRange(value)}
+                        aria-selected={range === value}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 {canPredict && (
-                  <div className="chart-predict-secondary-row">
-                    {showPredictions ? (
+                  <div className="chart-predict-row">
+                    {showPredictions && (
                       <>
                         {predictionFilterLabel &&
                           isPredictionChartRange(range) && (
@@ -2092,12 +2160,16 @@ const CryptoDetails = () => {
                           </button>
                         )}
                       </>
-                    ) : (
-                      <span
-                        className="chart-predict-secondary-placeholder"
-                        aria-hidden="true"
-                      />
                     )}
+                    <button
+                      type="button"
+                      className={`btn-ai-predict${showPredictions ? " active" : ""}`}
+                      onClick={handlePredictToggle}
+                      disabled={predictionLoading}
+                      aria-pressed={showPredictions}
+                    >
+                      ✦ AI Predict{predictionLoading ? " …" : ""}
+                    </button>
                   </div>
                 )}
               </div>
@@ -2135,6 +2207,7 @@ const CryptoDetails = () => {
                   predictionLineConfigs={
                     showPredictions ? predictionLineConfigs : []
                   }
+                  emphasizePriceLine={showPredictions && showHistoricalPredictions}
                 />
               )}
 

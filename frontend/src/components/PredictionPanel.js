@@ -3,6 +3,7 @@ import {
   formatPredictionTargetTime,
   getPredictionTargetTimes,
 } from "../utils/chartPredictions";
+import { PREDICTION_PANEL_COLOR_VARS } from "../constants/predictionColors";
 import "./PredictionPanel.css";
 
 function ForecastCard({ title, forecast, variant }) {
@@ -39,12 +40,16 @@ export default function PredictionPanel({ prediction, loading, error, onRefresh,
   if (!visible) return null;
 
   if (loading) {
-    return <div className="prediction-panel loading">Loading prediction…</div>;
+    return (
+      <div className="prediction-panel loading" style={PREDICTION_PANEL_COLOR_VARS}>
+        Loading prediction…
+      </div>
+    );
   }
 
   if (error) {
     return (
-      <div className="prediction-panel error">
+      <div className="prediction-panel error" style={PREDICTION_PANEL_COLOR_VARS}>
         <p>{error}</p>
         <button type="button" onClick={onRefresh}>Retry</button>
       </div>
@@ -53,7 +58,7 @@ export default function PredictionPanel({ prediction, loading, error, onRefresh,
 
   if (!prediction) {
     return (
-      <div className="prediction-panel empty">
+      <div className="prediction-panel empty" style={PREDICTION_PANEL_COLOR_VARS}>
         <p>No prediction data available from the server.</p>
       </div>
     );
@@ -71,7 +76,7 @@ export default function PredictionPanel({ prediction, loading, error, onRefresh,
   const target24hLabel = formatPredictionTargetTime(target24h);
 
   return (
-    <div className="prediction-panel">
+    <div className="prediction-panel" style={PREDICTION_PANEL_COLOR_VARS}>
       <section className="prediction-horizon-section prediction-horizons-row">
         <div className="prediction-horizon-group">
           <h3 className="prediction-horizon-title">Next Hour</h3>

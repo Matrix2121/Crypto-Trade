@@ -2,12 +2,12 @@ package com.matrix2121.cryptotrade.cryptoprices.krakenclient;
 
 import java.math.BigDecimal;
 import java.net.URI;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.TreeMap;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
@@ -26,13 +26,20 @@ public class KrakenOhlcClient {
     private static final String OHLC_URL = "https://api.kraken.com/0/public/OHLC";
     private static final String KRAKEN_ERROR_FIELD = "error";
     private static final int KRAKEN_PAGE_SIZE = 720;
+    private static final int MAX_PAGINATION_PAGES = 200;
     private static final int MAX_RATE_LIMIT_RETRIES = 6;
 
     private final RestTemplate restTemplate;
     private final KrakenApiThrottle throttle;
 
+    @Autowired
     public KrakenOhlcClient(KrakenApiThrottle throttle) {
-        this.restTemplate = new RestTemplate();
+        this(throttle, new RestTemplate());
+    }
+
+    /** Package-private for unit tests. */
+    KrakenOhlcClient(KrakenApiThrottle throttle, RestTemplate restTemplate) {
+        this.restTemplate = restTemplate;
         this.throttle = throttle;
     }
 
@@ -59,84 +66,63 @@ public class KrakenOhlcClient {
                 .toUri();
 
         JsonNode body = getKrakenJson(uri);
-        return parseOhlc(body, krakenPair);
+        return parseOhlcPage(body, krakenPair).candles();
     }
 
     /**
-     * Fetches OHLC from sinceSeconds through now. Kraken returns at most 720
-     * candles per
-     * request and ignores very old {@code since} values (returns the latest 720
-     * instead).
-     * We walk backward in 720-candle windows so 5-year daily syncs receive the full
-     * range.
+     * Fetches OHLC from sinceSeconds through now using Kraken's {@code since}
+     * parameter and the {@code last} cursor returned in each response page.
      */
     public List<OhlcDto> fetchOhlcSince(String symbol, int interval, long sinceSeconds) {
         String krakenPair = KrakenPairMapper.toKrakenPair(symbol);
-        long intervalSec = interval * 60L;
-        long chunkWidthSec = KRAKEN_PAGE_SIZE * intervalSec;
-        long endExclusiveSec = Instant.now().getEpochSecond() + intervalSec;
-
         TreeMap<Long, OhlcDto> byTimestamp = new TreeMap<>();
-        long cursor = endExclusiveSec;
-        boolean hasMore = true;
+        long since = sinceSeconds;
+        int pages = 0;
 
-        while (cursor > sinceSeconds && hasMore) {
-            long chunkStart = Math.max(sinceSeconds, cursor - chunkWidthSec);
-            List<OhlcDto> page = fetchOhlcPage(krakenPair, interval);
-
-            if (page.isEmpty()) {
-                hasMore = false;
-            } else {
-                long pageMinSec = mergePageIntoMap(page, chunkStart, cursor, byTimestamp);
-                cursor = nextCursor(chunkStart, sinceSeconds, intervalSec, pageMinSec);
-                hasMore = cursor > sinceSeconds && pageMinSec > sinceSeconds + intervalSec;
+        while (pages < MAX_PAGINATION_PAGES) {
+            OhlcPage page = fetchOhlcPage(krakenPair, interval, since);
+            if (page.candles().isEmpty()) {
+                break;
             }
+
+            for (OhlcDto candle : page.candles()) {
+                if (candle.timestamp() / 1000L >= sinceSeconds) {
+                    byTimestamp.put(candle.timestamp(), candle);
+                }
+            }
+
+            pages++;
+
+            if (page.candles().size() < KRAKEN_PAGE_SIZE) {
+                break;
+            }
+
+            Long nextSince = page.lastId();
+            if (nextSince == null || nextSince <= since) {
+                break;
+            }
+            since = nextSince;
+        }
+
+        if (pages >= MAX_PAGINATION_PAGES) {
+            log.warn(
+                    "Kraken OHLC pagination hit max pages ({}) for pair {} interval {}",
+                    MAX_PAGINATION_PAGES, krakenPair, interval);
         }
 
         return new ArrayList<>(byTimestamp.values());
     }
 
-    private static long mergePageIntoMap(
-            List<OhlcDto> page,
-            long chunkStart,
-            long cursor,
-            TreeMap<Long, OhlcDto> byTimestamp) {
-        long pageMinSec = Long.MAX_VALUE;
-        for (OhlcDto candle : page) {
-            long tsSec = candle.timestamp() / 1000L;
-            pageMinSec = Math.min(pageMinSec, tsSec);
-            if (tsSec >= chunkStart && tsSec < cursor) {
-                byTimestamp.put(candle.timestamp(), candle);
-            }
-        }
-        return pageMinSec;
-    }
-
-    private static long nextCursor(
-            long chunkStart,
-            long sinceSeconds,
-            long intervalSec,
-            long pageMinSec) {
-        if (pageMinSec <= sinceSeconds + intervalSec) {
-            return sinceSeconds;
-        }
-        // Kraken ignored chunkStart and returned only the latest window — step back
-        // from oldest candle.
-        if (pageMinSec > chunkStart + intervalSec) {
-            return pageMinSec;
-        }
-        return chunkStart;
-    }
-
-    private List<OhlcDto> fetchOhlcPage(String krakenPair, int interval) {
-        URI uri = UriComponentsBuilder.fromUriString(OHLC_URL)
+    private OhlcPage fetchOhlcPage(String krakenPair, int interval, long sinceSeconds) {
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(OHLC_URL)
                 .queryParam("pair", krakenPair)
-                .queryParam("interval", interval)
-                .build()
-
-                .toUri();
+                .queryParam("interval", interval);
+        if (sinceSeconds > 0) {
+            builder.queryParam("since", sinceSeconds);
+        }
+        URI uri = builder.build().toUri();
         JsonNode body = getKrakenJson(uri);
-        return parseOhlc(body, krakenPair);
+        return parseOhlcPage(body, krakenPair);
     }
 
     private JsonNode getKrakenJson(URI uri) {
@@ -184,7 +170,7 @@ public class KrakenOhlcClient {
         return false;
     }
 
-    private List<OhlcDto> parseOhlc(JsonNode body, String krakenPair) {
+    private OhlcPage parseOhlcPage(JsonNode body, String krakenPair) {
         JsonNode result = body.get("result");
         if (result == null || result.isNull()) {
             throw new KrakenApiException("Kraken OHLC response missing result");
@@ -199,7 +185,11 @@ public class KrakenOhlcClient {
         for (JsonNode candle : candles) {
             ohlcList.add(parseCandle(candle));
         }
-        return ohlcList;
+
+        Long lastId = result.has("last") && !result.get("last").isNull()
+                ? result.get("last").asLong()
+                : null;
+        return new OhlcPage(ohlcList, lastId);
     }
 
     private JsonNode findCandleArray(JsonNode result) {
@@ -235,5 +225,8 @@ public class KrakenOhlcClient {
         if (errors != null && errors.isArray() && !errors.isEmpty()) {
             throw new KrakenApiException("Kraken API error: " + errors);
         }
+    }
+
+    record OhlcPage(List<OhlcDto> candles, Long lastId) {
     }
 }

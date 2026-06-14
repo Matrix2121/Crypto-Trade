@@ -92,6 +92,36 @@ function filterByWindow(data, windowMs) {
   return data.filter((p) => p.timestamp >= cutoff);
 }
 
+/**
+ * Snap OHLC candles to the chart bucket grid (Timescale time_bucket boundaries
+ * can differ slightly from raw epoch ms). Returns only real candles — does not
+ * insert null placeholders for every missing bucket, which would break the line
+ * when source data is coarser than the chart interval (e.g. hourly rows shown on
+ * a 30m chart).
+ */
+function fillOhlcGaps(candles, bucketMs, windowMs) {
+  if (!candles?.length || !bucketMs) return candles;
+
+  const byBucket = new Map();
+  for (const c of candles) {
+    if (c.close == null && c.open == null) continue;
+    const key = floorToBucketMs(c.timestamp, bucketMs);
+    const existing = byBucket.get(key);
+    if (!existing || c.timestamp >= existing.timestamp) {
+      byBucket.set(key, { ...c, timestamp: key });
+    }
+  }
+
+  let result = [...byBucket.values()].sort((a, b) => a.timestamp - b.timestamp);
+
+  if (windowMs != null) {
+    const cutoff = floorToBucketMs(Date.now() - windowMs, bucketMs);
+    result = result.filter((c) => c.timestamp >= cutoff);
+  }
+
+  return result;
+}
+
 function floorToBucketMs(timestamp, bucketMs) {
   return Math.floor(timestamp / bucketMs) * bucketMs;
 }
@@ -259,8 +289,12 @@ const useLiveChart = (symbol, initialRange = "1Min", chartMode = "line") => {
       try {
         const raw     = await fetchRangeHistory(symbol, range);
         if (cancelled) return;
-        const fetched = filterByWindow(mapOhlcToChart(raw), windowMs);
         const bucketMs = OHLC_BUCKET_MS[range];
+        const fetched = fillOhlcGaps(
+          filterByWindow(mapOhlcToChart(raw), windowMs),
+          bucketMs,
+          windowMs,
+        );
         const { price: livePrice, timestamp: liveTs } = latestLiveRef.current;
         const merged = livePrice != null && bucketMs
           ? applyLiveTickToOhlcCandles(fetched, livePrice, liveTs, bucketMs, windowMs)
@@ -293,8 +327,12 @@ const useLiveChart = (symbol, initialRange = "1Min", chartMode = "line") => {
       try {
         const raw = await fetchRangeHistory(symbol, range);
         if (cancelled) return;
-        const fetched = filterByWindow(mapOhlcToChart(raw), windowMs);
         const bucketMs = OHLC_BUCKET_MS[range];
+        const fetched = fillOhlcGaps(
+          filterByWindow(mapOhlcToChart(raw), windowMs),
+          bucketMs,
+          windowMs,
+        );
         const { price: livePrice, timestamp: liveTs } = latestLiveRef.current;
         const merged = livePrice != null && bucketMs
           ? applyLiveTickToOhlcCandles(fetched, livePrice, liveTs, bucketMs, windowMs)

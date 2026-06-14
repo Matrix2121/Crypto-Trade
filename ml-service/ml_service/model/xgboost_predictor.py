@@ -36,14 +36,17 @@ def _model_paths(asset: str, horizon_hours: int) -> tuple[Path, Path]:
 
 
 def load_ohlcv(asset: str, interval: str = "1h") -> pd.DataFrame:
+    if interval != "1h":
+        raise ValueError(f"Only 1h interval is supported (got {interval})")
     rows = fetch_all(
         """
-        SELECT timestamp, open, high, low, close, volume
-        FROM ohlc_data
-        WHERE symbol = :asset AND interval_string = :interval
-        ORDER BY timestamp ASC
+        SELECT CAST(EXTRACT(EPOCH FROM bucket) * 1000 AS BIGINT) AS timestamp,
+               open, high, low, close, volume
+        FROM ohlc_1h
+        WHERE symbol = :asset
+        ORDER BY bucket ASC
         """,
-        {"asset": asset, "interval": interval},
+        {"asset": asset},
     )
     if not rows:
         return pd.DataFrame()

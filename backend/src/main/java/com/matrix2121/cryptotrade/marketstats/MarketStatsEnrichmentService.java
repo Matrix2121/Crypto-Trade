@@ -7,8 +7,8 @@ import java.util.Optional;
 import org.springframework.stereotype.Service;
 
 import com.matrix2121.cryptotrade.context.CryptoPricesContext;
-import com.matrix2121.cryptotrade.marketdata.persistence.OhlcData;
-import com.matrix2121.cryptotrade.marketdata.persistence.OhlcDataRepository;
+import com.matrix2121.cryptotrade.marketdata.OhlcTimeConverter;
+import com.matrix2121.cryptotrade.marketdata.persistence.OhlcChartRepository;
 
 @Service
 public class MarketStatsEnrichmentService {
@@ -16,10 +16,10 @@ public class MarketStatsEnrichmentService {
     private static final long MS_PER_HOUR = 3_600_000L;
     private static final long MS_24H = 24L * MS_PER_HOUR;
 
-    private final OhlcDataRepository ohlcDataRepository;
+    private final OhlcChartRepository ohlcChartRepository;
 
-    public MarketStatsEnrichmentService(OhlcDataRepository ohlcDataRepository) {
-        this.ohlcDataRepository = ohlcDataRepository;
+    public MarketStatsEnrichmentService(OhlcChartRepository ohlcChartRepository) {
+        this.ohlcChartRepository = ohlcChartRepository;
     }
 
     public Double resolveChange24h(String symbol, Double storedChange24h) {
@@ -36,12 +36,12 @@ public class MarketStatsEnrichmentService {
         }
 
         long targetTimestamp = System.currentTimeMillis() - MS_24H;
-        BigDecimal reference = referencePriceAt(symbol, targetTimestamp, "1h");
+        BigDecimal reference = referencePriceAt(symbol, targetTimestamp, "ohlc_1h");
         if (reference == null) {
-            reference = referencePriceAt(symbol, targetTimestamp, "1m");
+            reference = referencePriceAt(symbol, targetTimestamp, "ohlc_1m");
         }
         if (reference == null) {
-            reference = referencePriceAt(symbol, targetTimestamp, "1d");
+            reference = referencePriceAt(symbol, targetTimestamp, "ohlc_1d");
         }
         if (reference == null || reference.compareTo(BigDecimal.ZERO) == 0) {
             return Optional.empty();
@@ -60,22 +60,17 @@ public class MarketStatsEnrichmentService {
         if (bid != null && ask != null) {
             return bid.add(ask).divide(BigDecimal.valueOf(2), 8, RoundingMode.HALF_UP);
         }
-        return latestClose(symbol, "1m")
-                .or(() -> latestClose(symbol, "1h"))
+        return latestClose(symbol, "ohlc_1m")
+                .or(() -> latestClose(symbol, "ohlc_1h"))
                 .orElse(null);
     }
 
-    private BigDecimal referencePriceAt(String symbol, long targetTimestamp, String interval) {
-        return ohlcDataRepository
-                .findFirstBySymbolAndIntervalStringAndTimestampLessThanEqualOrderByTimestampDesc(
-                        symbol, interval, targetTimestamp)
-                .map(OhlcData::getClose)
-                .orElse(null);
+    private BigDecimal referencePriceAt(String symbol, long targetTimestampMs, String viewName) {
+        return ohlcChartRepository.findCloseAtOrBefore(
+                viewName, symbol, OhlcTimeConverter.toInstant(targetTimestampMs));
     }
 
-    private Optional<BigDecimal> latestClose(String symbol, String interval) {
-        return ohlcDataRepository
-                .findFirstBySymbolAndIntervalStringOrderByTimestampDesc(symbol, interval)
-                .map(OhlcData::getClose);
+    private Optional<BigDecimal> latestClose(String symbol, String viewName) {
+        return Optional.ofNullable(ohlcChartRepository.findLatestClose(viewName, symbol));
     }
 }

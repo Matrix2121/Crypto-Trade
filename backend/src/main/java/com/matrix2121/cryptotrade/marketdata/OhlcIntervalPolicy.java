@@ -4,74 +4,45 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Retention windows and Kraken sync configuration for OHLC intervals.
+ * Kraken sync configuration for base OHLC hypertables ({@code ohlc_1m}, {@code ohlc_1d}).
+ * Coarser chart intervals are served by TimescaleDB continuous aggregates.
  */
 public final class OhlcIntervalPolicy {
 
-    public enum DataSource {
-        KRAKEN,
-        AGGREGATION,
-        KRAKEN_AND_AGGREGATION
-    }
-
-    public record IntervalSpec(
-            String intervalString,
+    public record BaseIntervalSpec(
+            String name,
             int krakenIntervalMinutes,
-            DataSource source,
             Optional<Long> retentionMs) {
     }
 
     private static final long MS_PER_MINUTE = 60_000L;
-    private static final long MS_PER_HOUR = 60L * MS_PER_MINUTE;
-    private static final long MS_PER_DAY = 24L * MS_PER_HOUR;
+    private static final long MS_PER_DAY = 24L * 60L * MS_PER_MINUTE;
 
-    private static final List<IntervalSpec> ALL_INTERVALS = List.of(
-            new IntervalSpec("1m", 1, DataSource.KRAKEN_AND_AGGREGATION, Optional.of(2L * MS_PER_DAY)),
-            new IntervalSpec("30m", 30, DataSource.KRAKEN_AND_AGGREGATION, Optional.of(2L * MS_PER_DAY)),
-            new IntervalSpec("1h", 60, DataSource.AGGREGATION, Optional.empty()),
-            new IntervalSpec("2h", 120, DataSource.AGGREGATION, Optional.of(8L * MS_PER_DAY)),
-            new IntervalSpec("4h", 240, DataSource.AGGREGATION, Optional.of(40L * MS_PER_DAY)),
-            new IntervalSpec("8h", 480, DataSource.AGGREGATION, Optional.of(40L * MS_PER_DAY)),
-            new IntervalSpec("1d", 1440, DataSource.KRAKEN, Optional.empty()),
-            new IntervalSpec("5d", 7200, DataSource.AGGREGATION, Optional.of(380L * MS_PER_DAY)),
-            new IntervalSpec("1mo", 43200, DataSource.AGGREGATION, Optional.empty()));
-
-    private static final List<IntervalSpec> KRAKEN_SYNC_INTERVALS = ALL_INTERVALS.stream()
-            .filter(spec -> spec.source() == DataSource.KRAKEN || spec.source() == DataSource.KRAKEN_AND_AGGREGATION)
-            .toList();
+    private static final List<BaseIntervalSpec> KRAKEN_BASE_INTERVALS = List.of(
+            new BaseIntervalSpec("1m", 1, Optional.of(2L * MS_PER_DAY)),
+            new BaseIntervalSpec("1d", 1440, Optional.empty()));
 
     private OhlcIntervalPolicy() {
     }
 
-    public static List<IntervalSpec> allIntervals() {
-        return ALL_INTERVALS;
+    public static List<BaseIntervalSpec> krakenBaseIntervals() {
+        return KRAKEN_BASE_INTERVALS;
     }
 
-    public static List<IntervalSpec> krakenSyncIntervals() {
-        return KRAKEN_SYNC_INTERVALS;
-    }
-
-    public static List<IntervalSpec> intervalsWithRetention() {
-        return ALL_INTERVALS.stream()
-                .filter(spec -> spec.retentionMs().isPresent())
-                .toList();
-    }
-
-    public static Optional<IntervalSpec> findByIntervalString(String intervalString) {
-        return ALL_INTERVALS.stream()
-                .filter(spec -> spec.intervalString().equals(intervalString))
+    public static Optional<BaseIntervalSpec> findByName(String name) {
+        return KRAKEN_BASE_INTERVALS.stream()
+                .filter(spec -> spec.name().equals(name))
                 .findFirst();
     }
 
-    public static long intervalStepMs(String intervalString) {
-        return findByIntervalString(intervalString)
+    public static long intervalStepMs(String name) {
+        return findByName(name)
                 .map(spec -> spec.krakenIntervalMinutes() * MS_PER_MINUTE)
-                .orElseThrow(() -> new IllegalArgumentException("Unknown interval: " + intervalString));
+                .orElseThrow(() -> new IllegalArgumentException("Unknown base interval: " + name));
     }
 
-    public static long windowStartMs(String intervalString, long nowMs) {
-        Optional<Long> retention = findByIntervalString(intervalString)
-                .flatMap(IntervalSpec::retentionMs);
+    public static long windowStartMs(String name, long nowMs) {
+        Optional<Long> retention = findByName(name).flatMap(BaseIntervalSpec::retentionMs);
         if (retention.isEmpty()) {
             return 0L;
         }

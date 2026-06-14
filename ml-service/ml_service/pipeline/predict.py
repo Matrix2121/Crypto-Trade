@@ -234,11 +234,10 @@ def backfill_actuals():
                    o.close
             FROM predictions p2
             JOIN LATERAL (
-                SELECT close FROM ohlc_data
+                SELECT close FROM ohlc_1h
                 WHERE symbol = p2.asset
-                  AND interval_string = '1h'
-                  AND timestamp <= EXTRACT(EPOCH FROM (p2.predicted_at + INTERVAL '24 hours')) * 1000
-                ORDER BY timestamp DESC
+                  AND bucket <= p2.predicted_at + INTERVAL '24 hours'
+                ORDER BY bucket DESC
                 LIMIT 1
             ) o ON TRUE
             WHERE p2.actual_price_24h IS NULL
