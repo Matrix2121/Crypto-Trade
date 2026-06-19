@@ -5,12 +5,39 @@ function toNumber(value, fallback = 0) {
   return Number.isNaN(parsed) ? fallback : parsed;
 }
 
-function formatChartLabel(tradeTimestamp) {
-  return new Date(tradeTimestamp).toLocaleString(undefined, {
+export function formatChartAxisTick(tradeTimestamp) {
+  const date = new Date(tradeTimestamp);
+  if (Number.isNaN(date.getTime())) return "";
+
+  return date.toLocaleString(undefined, {
     month: "short",
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
+function formatChartLabel(tradeTimestamp) {
+  return formatChartAxisTick(tradeTimestamp);
+}
+
+function toTimestampMs(tradeTimestamp) {
+  const ms = new Date(tradeTimestamp).getTime();
+  return Number.isNaN(ms) ? Date.now() : ms;
+}
+
+/** Keep every trade on its own x-position even when timestamps collide. */
+function dedupeTimestamps(points) {
+  const used = new Set();
+
+  return points.map((point) => {
+    let timestamp = point.timestamp;
+    while (used.has(timestamp)) {
+      timestamp += 1;
+    }
+    used.add(timestamp);
+    return timestamp === point.timestamp ? point : { ...point, timestamp };
   });
 }
 
@@ -57,18 +84,18 @@ export function buildBalanceChartData(transactions, currentBalance) {
         balance: running,
         isTransaction: true,
         transaction: tx,
-        timestamp: new Date(tx.tradeTimestamp).getTime(),
+        timestamp: toTimestampMs(tx.tradeTimestamp),
       });
 
       running = tx.isPurchase ? running + amount : running - amount;
     }
 
     const startBalance = running;
-    const firstTs = new Date(sorted[0].tradeTimestamp).getTime();
+    const firstTs = toTimestampMs(sorted[0].tradeTimestamp);
 
     return {
       startBalance,
-      points: [
+      points: dedupeTimestamps([
         {
           id: "start",
           label: "Start",
@@ -78,7 +105,7 @@ export function buildBalanceChartData(transactions, currentBalance) {
           timestamp: firstTs - 1,
         },
         ...txPoints,
-      ],
+      ]),
     };
   }
 
@@ -93,15 +120,15 @@ export function buildBalanceChartData(transactions, currentBalance) {
       balance: running,
       isTransaction: true,
       transaction: tx,
-      timestamp: new Date(tx.tradeTimestamp).getTime(),
+      timestamp: toTimestampMs(tx.tradeTimestamp),
     };
   });
 
-  const firstTs = new Date(sorted[0].tradeTimestamp).getTime();
+  const firstTs = toTimestampMs(sorted[0].tradeTimestamp);
 
   return {
     startBalance: DEFAULT_START_BALANCE,
-    points: [
+    points: dedupeTimestamps([
       {
         id: "start",
         label: "Start",
@@ -111,6 +138,6 @@ export function buildBalanceChartData(transactions, currentBalance) {
         timestamp: firstTs - 1,
       },
       ...txPoints,
-    ],
+    ]),
   };
 }

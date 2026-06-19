@@ -3,14 +3,14 @@ package com.matrix2121.cryptotrade.portfolio;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import com.matrix2121.cryptotrade.context.CryptoPricesContext;
+import com.matrix2121.cryptotrade.portfolio.PortfolioCostBasisCalculator.LedgerEntry;
+import com.matrix2121.cryptotrade.portfolio.PortfolioCostBasisCalculator.ReplayResult;
 import com.matrix2121.cryptotrade.transactions.TransactionModel;
 import com.matrix2121.cryptotrade.transactions.dao.TransactionDao;
 
@@ -29,66 +29,43 @@ public class PortfolioAnalyticsService {
 
     public PortfolioAnalyticsDto getAnalytics(Long userId) {
         List<TransactionModel> txs = safeTransactions(userId);
+        ReplayResult replay = PortfolioCostBasisCalculator.replay(txs);
+
         BigDecimal cashBalance = jdbcTemplate.queryForObject(
                 "SELECT balance FROM users WHERE id = ?",
                 BigDecimal.class,
                 userId);
 
-        Map<String, AssetPnlDto> byAsset = new HashMap<>();
-        BigDecimal realizedPnl = BigDecimal.ZERO;
-
-        for (TransactionModel tx : txs) {
-            String code = tx.cryptoCode();
-            AssetPnlDto entry = byAsset.computeIfAbsent(code, c -> new AssetPnlDto(
-                    c, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO));
-
-            if (Boolean.TRUE.equals(tx.isPurchase())) {
-                entry = new AssetPnlDto(
-                        code,
-                        entry.quantityHeld().add(tx.cryptoAmount()),
-                        entry.costBasisTotal().add(tx.localCurrencyAmount()),
-                        entry.realizedPnl(),
-                        entry.currentPrice(),
-                        entry.marketValue());
-                byAsset.put(code, entry);
-            } else {
-                BigDecimal avgEntry = entry.quantityHeld().compareTo(BigDecimal.ZERO) > 0
-                        ? entry.costBasisTotal().divide(entry.quantityHeld(), 8, RoundingMode.HALF_UP)
-                        : tx.unitPrice();
-                BigDecimal costSold = avgEntry.multiply(tx.cryptoAmount());
-                BigDecimal saleProceeds = tx.localCurrencyAmount();
-                realizedPnl = realizedPnl.add(saleProceeds.subtract(costSold));
-
-                BigDecimal newQty = entry.quantityHeld().subtract(tx.cryptoAmount()).max(BigDecimal.ZERO);
-                BigDecimal newCost = entry.costBasisTotal().subtract(costSold).max(BigDecimal.ZERO);
-                byAsset.put(code, new AssetPnlDto(
-                        code, newQty, newCost, entry.realizedPnl(), entry.currentPrice(), entry.marketValue()));
-            }
-        }
-
+        List<AssetModel> currentAssets = fetchCurrentAssets(userId);
         List<AssetPnlDto> holdings = new ArrayList<>();
         BigDecimal totalCryptoValue = BigDecimal.ZERO;
         BigDecimal totalUnrealized = BigDecimal.ZERO;
 
-        for (AssetPnlDto entry : byAsset.values()) {
-            if (entry.quantityHeld().compareTo(BigDecimal.ZERO) <= 0) {
+        for (AssetModel asset : currentAssets) {
+            BigDecimal quantityHeld = asset.cryptoAmount();
+            if (quantityHeld == null || quantityHeld.compareTo(BigDecimal.ZERO) <= 0) {
                 continue;
             }
-            BigDecimal currentPrice = resolvePrice(entry.cryptoCode());
-            BigDecimal marketValue = currentPrice.multiply(entry.quantityHeld());
-            BigDecimal avgEntry = entry.costBasisTotal().divide(entry.quantityHeld(), 8, RoundingMode.HALF_UP);
-            BigDecimal unrealized = marketValue.subtract(entry.costBasisTotal());
 
-            AssetPnlDto enriched = new AssetPnlDto(
-                    entry.cryptoCode(),
-                    entry.quantityHeld(),
-                    entry.costBasisTotal(),
-                    entry.realizedPnl(),
+            LedgerEntry ledger = replay.byAsset()
+                    .getOrDefault(asset.cryptoCode(), LedgerEntry.empty());
+            BigDecimal costBasis = PortfolioCostBasisCalculator.costBasisForQuantity(ledger, quantityHeld);
+            BigDecimal currentPrice = resolvePrice(asset.cryptoCode());
+            BigDecimal marketValue = currentPrice.multiply(quantityHeld);
+            BigDecimal avgEntry = quantityHeld.compareTo(BigDecimal.ZERO) > 0
+                    ? costBasis.divide(quantityHeld, 8, RoundingMode.HALF_UP)
+                    : BigDecimal.ZERO;
+            BigDecimal unrealized = marketValue.subtract(costBasis);
+
+            holdings.add(new AssetPnlDto(
+                    asset.cryptoCode(),
+                    quantityHeld,
+                    costBasis,
+                    ledger.realizedPnl(),
                     currentPrice,
                     marketValue,
                     avgEntry,
-                    unrealized);
-            holdings.add(enriched);
+                    unrealized));
             totalCryptoValue = totalCryptoValue.add(marketValue);
             totalUnrealized = totalUnrealized.add(unrealized);
         }
@@ -102,10 +79,27 @@ public class PortfolioAnalyticsService {
                 cashBalance,
                 totalCryptoValue,
                 totalUnrealized,
-                realizedPnl,
+                replay.totalRealizedPnl(),
                 holdings,
                 allocation,
                 valueHistory);
+    }
+
+    private List<AssetModel> fetchCurrentAssets(Long userId) {
+        return jdbcTemplate.query(
+                """
+                SELECT a.id, a.crypto_code, a.crypto_amount, a.user_id
+                FROM assets a
+                WHERE a.user_id = ?
+                  AND a.crypto_amount > 0
+                ORDER BY a.crypto_code
+                """,
+                (rs, rowNum) -> new AssetModel(
+                        rs.getLong("id"),
+                        rs.getString("crypto_code"),
+                        rs.getBigDecimal("crypto_amount"),
+                        rs.getLong("user_id")),
+                userId);
     }
 
     private List<TransactionModel> safeTransactions(Long userId) {
@@ -130,8 +124,13 @@ public class PortfolioAnalyticsService {
         if (total.compareTo(BigDecimal.ZERO) <= 0) {
             return slices;
         }
-        slices.add(new AllocationSliceDto("USD", cash, pct(cash, total)));
+        if (cash.compareTo(BigDecimal.ZERO) > 0) {
+            slices.add(new AllocationSliceDto("USD", cash, pct(cash, total)));
+        }
         for (AssetPnlDto h : holdings) {
+            if (h.marketValue().compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
             slices.add(new AllocationSliceDto(h.cryptoCode(), h.marketValue(), pct(h.marketValue(), total)));
         }
         return slices;

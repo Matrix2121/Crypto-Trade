@@ -46,7 +46,8 @@ public class ChartDataService {
             case "1D"  -> toObjectList(
                     ohlcChartRepository.findThirtyMinuteBucketsFrom1m(symbol, nowMs - MS_PER_DAY));
             case "1W"  -> toObjectList(fetchOhlc("ohlc_2h",  symbol, nowMs -  7L * MS_PER_DAY));
-            case "1M"  -> toObjectList(fetchOhlc("ohlc_8h",  symbol, nowMs - 30L * MS_PER_DAY));
+            case "1M"  -> toObjectList(
+                    ohlcChartRepository.findEightHourBucketsFrom1h(symbol, nowMs - 30L * MS_PER_DAY));
             case "3M"  -> toObjectList(fetchOhlc("ohlc_1d",  symbol, nowMs - 90L * MS_PER_DAY));
             case "1Y"  -> toObjectList(fetchOhlc("ohlc_5d",  symbol, nowMs - 365L * MS_PER_DAY));
             case "5Y"  -> toObjectList(fetchOhlc("ohlc_1mo", symbol, nowMs - 5L * 365 * MS_PER_DAY));

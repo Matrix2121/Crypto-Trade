@@ -232,7 +232,10 @@ export function getPredictionFilterLabel(
     if (showHistoricalPredictions) {
       return "Past model daily & context-aware predictions";
     }
-    return null;
+    const dailyTo = formatDayLabel(
+      predictionWindowEnd ?? floorToDayMs(Date.now()) + DAY_MS,
+    );
+    return `Model daily & context-aware to ${dailyTo}`;
   }
 
   const to = formatHourLabel(predictionWindowEnd ?? floorToHourMs(Date.now()) + HOUR_MS);
@@ -488,6 +491,42 @@ function build1d1wPredictionOverlay(displayData, prediction) {
 }
 
 /**
+ * 1M, 3M, and 1Y chart overlay: daily + context-aware wedges to tomorrow,
+ * anchored at the last live price (same style as 1D/1W, without hourly).
+ */
+function buildDailyOnlyPredictionOverlay(displayData, prediction) {
+  if (!displayData.length || !prediction) return EMPTY_OVERLAY;
+
+  const lastLive = getLastLivePoint(displayData);
+  if (!lastLive) return EMPTY_OVERLAY;
+
+  const tomorrowStart = floorToDayMs(Date.now()) + DAY_MS;
+  const dailyCiKeys = FORECAST_CI_KEYS[PREDICTION_LINE_KEYS.DAILY];
+  const contextCiKeys = FORECAST_CI_KEYS[PREDICTION_LINE_KEYS.CONTEXT_AWARE];
+
+  const wedges = [
+    {
+      targetTs: tomorrowStart,
+      ci: getForecastCi(prediction.mlPrediction),
+      ciKeys: dailyCiKeys,
+      lineConfig: buildDailyBandConfig(),
+      targetFlags: { isDailyFutureTarget: true },
+    },
+    {
+      targetTs: tomorrowStart,
+      ci: getForecastCi(prediction.contextAwarePrediction),
+      ciKeys: contextCiKeys,
+      lineConfig: buildContextAwareBandConfig(),
+      targetFlags: { isContextAwareFutureTarget: true },
+    },
+  ];
+
+  const overlay = buildLiveAnchoredWedgeBands(lastLive, wedges);
+
+  return overlay ?? EMPTY_OVERLAY;
+}
+
+/**
  * In-range past target dots only (no chart-edge or live-price anchors).
  * Uses forecast CI keys so the series can connect to the forward overlay.
  */
@@ -690,9 +729,8 @@ export function buildPredictionChartOverlay(
     return build1d1wPredictionOverlay(displayData, prediction);
   }
 
-  // Forward overlays are disabled on long-range charts; use Past predictions for history.
   if (DAILY_ONLY_CHART_RANGES.has(range)) {
-    return EMPTY_OVERLAY;
+    return buildDailyOnlyPredictionOverlay(displayData, prediction);
   }
 
   return EMPTY_OVERLAY;

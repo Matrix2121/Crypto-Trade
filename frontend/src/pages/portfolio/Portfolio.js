@@ -14,7 +14,7 @@ import {
   formatCryptoAmount,
 } from "../../utils/formatBalance";
 import { getCryptoIconPath, handleCryptoIconError } from "../../utils/getCryptoIconPath";
-import { buildBalanceChartData } from "../../utils/buildBalanceChartData";
+import { buildBalanceChartData, formatChartAxisTick } from "../../utils/buildBalanceChartData";
 import {
   LineChart,
   Line,
@@ -26,6 +26,7 @@ import {
   PieChart,
   Pie,
   Cell,
+  Sector,
   BarChart,
   Bar,
   CartesianGrid,
@@ -57,7 +58,11 @@ function BalanceTooltip({ active, payload }) {
     return null;
   }
 
-  const point = payload[0].payload;
+  const point =
+    payload.find((entry) => entry?.payload?.isTransaction)?.payload
+    ?? payload[0]?.payload;
+
+  if (!point) return null;
 
   if (point.isTransaction && point.transaction) {
     const tx = point.transaction;
@@ -106,6 +111,109 @@ function BalanceTooltip({ active, payload }) {
   );
 }
 
+function AllocationTooltip({ active, payload, totalPortfolio }) {
+  if (!active || !payload?.length) {
+    return null;
+  }
+
+  const slice = payload[0].payload;
+  if (!slice) return null;
+
+  const percent =
+    totalPortfolio > 0
+      ? ((Number(slice.valueUsd) / totalPortfolio) * 100).toFixed(1)
+      : "0.0";
+
+  return (
+    <div className="portfolio-chart-tooltip">
+      <div className="portfolio-chart-tooltip-header">
+        <strong>{slice.label}</strong>
+      </div>
+      <p>
+        <span>Value</span>
+        <strong>{formatBalanceUsd(slice.valueUsd)}</strong>
+      </p>
+      <p>
+        <span>Share</span>
+        <strong>{percent}% of portfolio</strong>
+      </p>
+      <p className="portfolio-allocation-total">
+        Total portfolio: {formatBalanceUsd(totalPortfolio)}
+      </p>
+    </div>
+  );
+}
+
+function AllocationActiveShape(props) {
+  const {
+    cx,
+    cy,
+    innerRadius,
+    outerRadius,
+    startAngle,
+    endAngle,
+    fill,
+  } = props;
+
+  return (
+    <Sector
+      cx={cx}
+      cy={cy}
+      innerRadius={innerRadius - 3}
+      outerRadius={outerRadius + 10}
+      startAngle={startAngle}
+      endAngle={endAngle}
+      fill={fill}
+      stroke="var(--color-bg-panel, #0f172a)"
+      strokeWidth={2}
+    />
+  );
+}
+
+function AssetAllocationChart({ slices, totalBalance, colors }) {
+  const [activeIndex, setActiveIndex] = useState(null);
+
+  useEffect(() => {
+    setActiveIndex(null);
+  }, [slices]);
+
+  if (!slices.length) {
+    return null;
+  }
+
+  return (
+    <ResponsiveContainer width="100%" height={200}>
+      <PieChart>
+        <Pie
+          data={slices}
+          dataKey="valueUsd"
+          nameKey="label"
+          innerRadius={50}
+          outerRadius={80}
+          paddingAngle={slices.length > 1 ? 2 : 0}
+          stroke="none"
+          activeIndex={activeIndex ?? undefined}
+          activeShape={AllocationActiveShape}
+          onMouseEnter={(_, index) => setActiveIndex(index)}
+          onMouseLeave={() => setActiveIndex(null)}
+          style={{ cursor: "pointer" }}
+        >
+          {slices.map((slice, i) => (
+            <Cell
+              key={slice.label}
+              fill={colors[i % colors.length]}
+              stroke="none"
+              fillOpacity={activeIndex == null || activeIndex === i ? 1 : 0.35}
+              className="portfolio-allocation-slice"
+            />
+          ))}
+        </Pie>
+        <Tooltip content={<AllocationTooltip totalPortfolio={totalBalance} />} />
+      </PieChart>
+    </ResponsiveContainer>
+  );
+}
+
 function formatChartBalanceTick(value) {
   const num = Number(value);
   if (Number.isNaN(num)) return "$0";
@@ -118,17 +226,12 @@ function formatChartBalanceTick(value) {
   return `$${num.toFixed(0)}`;
 }
 
-function formatSellPrice(value) {
-  if (value == null || Number.isNaN(Number(value))) return "—";
-  const num = Number(value);
-  if (num >= 1000) {
-    return num.toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-  }
-  if (num >= 1) return num.toFixed(4);
-  return num.toFixed(6);
+function getPnlTone(pnl) {
+  if (pnl == null || Number.isNaN(Number(pnl))) return "neutral";
+  const num = Number(pnl);
+  if (num > 0) return "positive";
+  if (num < 0) return "negative";
+  return "neutral";
 }
 
 function computeYDomain(points) {
@@ -146,6 +249,49 @@ function computeYDomain(points) {
   const padding = span > 0 ? span * 0.08 : Math.max(max * 0.05, 100);
 
   return [Math.max(0, min - padding), max + padding];
+}
+
+const PNL_AXIS_MIN_BOUND = 2;
+
+/** Keep P&L axis stable: ±2, ±4, ±8… until data breaches the current bound. */
+function computeDoublingPnlAxis(pnlValues) {
+  const values = (pnlValues || [])
+    .map((value) => Number(value))
+    .filter((value) => !Number.isNaN(value));
+
+  let bound = PNL_AXIS_MIN_BOUND;
+  if (values.length) {
+    const maxAbs = Math.max(...values.map((value) => Math.abs(value)), 0);
+    while (maxAbs > bound) {
+      bound *= 2;
+    }
+  }
+
+  const ticks = [0];
+  const step = bound <= PNL_AXIS_MIN_BOUND ? PNL_AXIS_MIN_BOUND : bound / 2;
+  for (let tick = step; tick <= bound; tick += step) {
+    ticks.push(tick, -tick);
+  }
+
+  return {
+    domain: [-bound, bound],
+    ticks: [...new Set(ticks)].sort((a, b) => a - b),
+  };
+}
+
+function formatSignedBalanceUsd(value) {
+  if (value == null || Number.isNaN(Number(value))) return "—";
+  const num = Number(value);
+  if (num === 0) return formatBalanceUsd(0);
+  const body = formatBalanceUsd(Math.abs(num));
+  return num > 0 ? `+${body}` : `-${body}`;
+}
+
+function formatPnlAxisTick(value) {
+  const num = Number(value);
+  if (Number.isNaN(num)) return "$0";
+  if (Number.isInteger(num)) return `$${num}`;
+  return `$${num.toFixed(2)}`;
 }
 
 const ALLOCATION_COLORS = ["#3b82f6", "#22c55e", "#f59e0b", "#a855f7", "#ef4444", "#06b6d4"];
@@ -176,6 +322,14 @@ const Portfolio = () => {
 
   const yDomain = useMemo(() => computeYDomain(chartData), [chartData]);
 
+  const chartXDomain = useMemo(() => {
+    const timestamps = chartData
+      .map((point) => point.timestamp)
+      .filter((value) => typeof value === "number" && !Number.isNaN(value));
+    if (!timestamps.length) return ["dataMin", "dataMax"];
+    return [Math.min(...timestamps), Math.max(...timestamps)];
+  }, [chartData]);
+
   const usdBalance = useMemo(() => {
     if (balance?.balance == null) return 0;
     const parsed = Number(balance.balance);
@@ -183,25 +337,59 @@ const Portfolio = () => {
   }, [balance]);
 
   const holdings = useMemo(() => {
+    const analyticsByCode = new Map(
+      (analytics?.holdings || []).map((holding) => [holding.cryptoCode, holding]),
+    );
+
     return (assets || [])
       .map((asset) => {
         const amount = Number(asset.cryptoAmount);
         const tick = prices.find((price) => price.symbol === asset.cryptoCode);
         const bid = tick?.bid != null ? Number(tick.bid) : null;
-        const usdValue =
+        const previousBid =
+          tick?.previousBid != null ? Number(tick.previousBid) : null;
+        const analyticsRow = analyticsByCode.get(asset.cryptoCode);
+        const fallbackUsd =
+          analyticsRow?.marketValue != null
+            ? Number(analyticsRow.marketValue)
+            : null;
+        const costBasis =
+          analyticsRow?.costBasisTotal != null
+            ? Number(analyticsRow.costBasisTotal)
+            : null;
+        const liveUsd =
           bid != null && !Number.isNaN(amount) ? amount * bid : null;
+        const previousSellValue =
+          previousBid != null && !Number.isNaN(amount)
+            ? amount * previousBid
+            : null;
+        const usdValue = liveUsd ?? fallbackUsd;
+        const unrealizedPnl =
+          liveUsd != null && costBasis != null
+            ? liveUsd - costBasis
+            : analyticsRow?.unrealizedPnl != null
+              ? Number(analyticsRow.unrealizedPnl)
+              : null;
+        const previousUnrealizedPnl =
+          previousSellValue != null && costBasis != null
+            ? previousSellValue - costBasis
+            : null;
 
         return {
           cryptoCode: asset.cryptoCode,
           amount: Number.isNaN(amount) ? 0 : amount,
           bid,
-          previousBid: tick?.previousBid ?? null,
+          previousBid,
           usdValue,
+          sellValue: liveUsd,
+          costBasis,
+          unrealizedPnl,
+          previousUnrealizedPnl,
         };
       })
       .filter((holding) => holding.amount > 0)
       .sort((a, b) => a.cryptoCode.localeCompare(b.cryptoCode));
-  }, [assets, prices]);
+  }, [assets, prices, analytics?.holdings]);
 
   const totalBalance = useMemo(() => {
     const cryptoTotal = holdings.reduce(
@@ -210,6 +398,55 @@ const Portfolio = () => {
     );
     return usdBalance + cryptoTotal;
   }, [usdBalance, holdings]);
+
+  const allocationSlices = useMemo(() => {
+    if (totalBalance <= 0) return [];
+
+    const slices = [];
+    if (usdBalance > 0) {
+      slices.push({
+        label: "USD",
+        valueUsd: usdBalance,
+        percent: (usdBalance / totalBalance) * 100,
+      });
+    }
+
+    for (const holding of holdings) {
+      if (holding.usdValue == null || holding.usdValue <= 0) continue;
+      slices.push({
+        label: holding.cryptoCode,
+        valueUsd: holding.usdValue,
+        percent: (holding.usdValue / totalBalance) * 100,
+      });
+    }
+
+    return slices;
+  }, [holdings, totalBalance, usdBalance]);
+
+  const pnlByAsset = useMemo(
+    () =>
+      holdings
+        .filter((holding) => holding.unrealizedPnl != null)
+        .map((holding) => ({
+          name: holding.cryptoCode,
+          pnl: holding.unrealizedPnl,
+        })),
+    [holdings],
+  );
+
+  const liveUnrealizedPnl = useMemo(() => {
+    const valued = holdings.filter((holding) => holding.unrealizedPnl != null);
+    if (!valued.length) return null;
+    return valued.reduce((sum, holding) => sum + holding.unrealizedPnl, 0);
+  }, [holdings]);
+
+  const displayedUnrealizedPnl =
+    liveUnrealizedPnl ?? Number(analytics?.unrealizedPnl ?? 0);
+
+  const pnlYAxis = useMemo(
+    () => computeDoublingPnlAxis(pnlByAsset.map((entry) => entry.pnl)),
+    [pnlByAsset],
+  );
 
   const isSelling = sellingCode != null || sellingAll;
 
@@ -304,11 +541,15 @@ const Portfolio = () => {
               margin={{ top: 16, right: 16, left: 4, bottom: 0 }}
             >
               <XAxis
-                dataKey="label"
+                dataKey="timestamp"
+                type="number"
+                scale="time"
+                domain={chartXDomain}
                 tickLine={false}
                 axisLine={false}
                 tick={{ fill: "var(--color-text-muted)", fontSize: 11 }}
-                interval="preserveStartEnd"
+                minTickGap={48}
+                tickFormatter={formatChartAxisTick}
               />
               <YAxis
                 type="number"
@@ -320,7 +561,7 @@ const Portfolio = () => {
                 domain={yDomain}
                 allowDataOverflow
               />
-              <Tooltip content={<BalanceTooltip />} />
+              <Tooltip content={<BalanceTooltip />} shared={false} />
               <ReferenceLine
                 y={startBalance}
                 stroke="var(--color-text-muted)"
@@ -378,14 +619,24 @@ const Portfolio = () => {
         )}
 
         <ul className="portfolio-holdings-list">
+          <li className="portfolio-holding-header" aria-hidden="true">
+            <span>Asset</span>
+            <span>Spent</span>
+            <span>If sold</span>
+            <span>P&amp;L</span>
+            <span />
+          </li>
+
           <li className="portfolio-holding-row portfolio-holding-usd">
             <div className="portfolio-holding-main">
               <span className="portfolio-holding-symbol">USD</span>
               <span className="portfolio-holding-detail">Cash balance</span>
             </div>
-            <strong className="portfolio-holding-value">
+            <span className="portfolio-holding-spent">—</span>
+            <strong className="portfolio-holding-if-sold">
               {formatBalanceUsd(usdBalance)}
             </strong>
+            <span className="portfolio-holding-pnl">—</span>
           </li>
 
           {holdings.map((holding) => {
@@ -412,27 +663,42 @@ const Portfolio = () => {
                   </div>
                 </div>
 
-                <div className="portfolio-holding-price">
-                  <span className="portfolio-holding-price-label">
-                    Sell price
-                  </span>
-                  <span className="portfolio-holding-price-value">
-                    <FlashPrice
-                      value={holding.bid}
-                      previousValue={holding.previousBid}
-                      showChange
-                      changeLayout="inline"
-                    >
-                      {formatSellPrice(holding.bid)}
-                    </FlashPrice>
-                  </span>
+                <div className="portfolio-holding-spent">
+                  <span className="portfolio-holding-metric-label">Spent</span>
+                  <strong className="portfolio-holding-metric-value">
+                    {holding.costBasis != null
+                      ? formatBalanceUsd(holding.costBasis)
+                      : "—"}
+                  </strong>
                 </div>
 
-                <strong className="portfolio-holding-value">
-                  {holding.usdValue != null
-                    ? formatBalanceUsd(holding.usdValue)
-                    : "—"}
-                </strong>
+                <div className="portfolio-holding-if-sold">
+                  <span className="portfolio-holding-metric-label">If sold</span>
+                  <strong className="portfolio-holding-metric-value">
+                    {holding.sellValue != null
+                      ? formatBalanceUsd(holding.sellValue)
+                      : "—"}
+                  </strong>
+                </div>
+
+                <div
+                  className={`portfolio-holding-pnl portfolio-holding-pnl--${getPnlTone(holding.unrealizedPnl)}`}
+                >
+                  <span className="portfolio-holding-metric-label">P&amp;L</span>
+                  {holding.unrealizedPnl != null ? (
+                    <FlashPrice
+                      value={holding.unrealizedPnl}
+                      previousValue={holding.previousUnrealizedPnl}
+                      showChange
+                      changeLayout="inline"
+                      className="portfolio-holding-pnl-flash"
+                    >
+                      {formatSignedBalanceUsd(holding.unrealizedPnl)}
+                    </FlashPrice>
+                  ) : (
+                    <strong className="portfolio-holding-metric-value">—</strong>
+                  )}
+                </div>
 
                 <button
                   type="button"
@@ -453,12 +719,12 @@ const Portfolio = () => {
           <div className="portfolio-analytics-summary">
             <div>
               <span className="pa-label">Total portfolio</span>
-              <strong>{formatBalanceUsd(analytics.totalPortfolioValue)}</strong>
+              <strong>{formatBalanceUsd(totalBalance)}</strong>
             </div>
             <div>
               <span className="pa-label">Unrealized P&amp;L</span>
-              <strong className={Number(analytics.unrealizedPnl) >= 0 ? "positive" : "negative"}>
-                {formatBalanceUsd(analytics.unrealizedPnl)}
+              <strong className={displayedUnrealizedPnl >= 0 ? "positive" : "negative"}>
+                {formatBalanceUsd(displayedUnrealizedPnl)}
               </strong>
             </div>
             <div>
@@ -472,39 +738,28 @@ const Portfolio = () => {
           <div className="portfolio-charts-row">
             <div className="portfolio-chart-card">
               <h3>Asset Allocation</h3>
-              <ResponsiveContainer width="100%" height={200}>
-                <PieChart>
-                  <Pie
-                    data={(analytics.allocation || []).filter((s) => Number(s.valueUsd) > 0)}
-                    dataKey="valueUsd"
-                    nameKey="label"
-                    innerRadius={50}
-                    outerRadius={80}
-                    paddingAngle={2}
-                  >
-                    {(analytics.allocation || []).map((_, i) => (
-                      <Cell key={i} fill={ALLOCATION_COLORS[i % ALLOCATION_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(v) => formatBalanceUsd(v)} />
-                </PieChart>
-              </ResponsiveContainer>
+              <AssetAllocationChart
+                slices={allocationSlices}
+                totalBalance={totalBalance}
+                colors={ALLOCATION_COLORS}
+              />
             </div>
 
             <div className="portfolio-chart-card">
               <h3>P&amp;L by Asset</h3>
               <ResponsiveContainer width="100%" height={200}>
-                <BarChart
-                  data={(analytics.holdings || []).map((h) => ({
-                    name: h.cryptoCode,
-                    pnl: Number(h.unrealizedPnl || 0),
-                  }))}
-                >
+                <BarChart data={pnlByAsset}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#333" />
                   <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                  <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `$${v}`} />
+                  <YAxis
+                    tick={{ fontSize: 10 }}
+                    domain={pnlYAxis.domain}
+                    ticks={pnlYAxis.ticks}
+                    tickFormatter={formatPnlAxisTick}
+                    allowDataOverflow
+                  />
                   <Tooltip formatter={(v) => formatBalanceUsd(v)} />
-                  <Bar dataKey="pnl" fill="#3b82f6" />
+                  <Bar dataKey="pnl" fill="#3b82f6" isAnimationActive={false} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

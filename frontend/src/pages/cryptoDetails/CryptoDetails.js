@@ -939,7 +939,7 @@ function ChartPriceSeries({ chartType, lineMode, hasSpreadData, emphasizePriceLi
           dot={false}
           isAnimationActive={false}
           legendType="none"
-          connectNulls={false}
+          connectNulls
         />
         <Line
           type="monotone"
@@ -953,7 +953,7 @@ function ChartPriceSeries({ chartType, lineMode, hasSpreadData, emphasizePriceLi
           dot={false}
           isAnimationActive={false}
           activeDot={activeDot}
-          connectNulls={false}
+          connectNulls
         />
       </>
     );

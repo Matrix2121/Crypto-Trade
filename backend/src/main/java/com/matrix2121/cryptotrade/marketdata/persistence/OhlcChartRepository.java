@@ -46,6 +46,59 @@ public class OhlcChartRepository {
         return findCandles(viewName, symbol, Instant.ofEpochMilli(cutoffMs));
     }
 
+    public List<Long> findBucketEpochMsBetween(
+            String viewName, String symbol, long startMs, long endMs) {
+        String sql = """
+                SELECT CAST(EXTRACT(EPOCH FROM bucket) * 1000 AS BIGINT) AS ts
+                FROM %s
+                WHERE symbol = ?
+                  AND bucket >= to_timestamp(? / 1000.0)
+                  AND bucket <= to_timestamp(? / 1000.0)
+                ORDER BY bucket ASC
+                """.formatted(viewName);
+
+        return jdbcTemplate.query(
+                sql,
+                (rs, rowNum) -> rs.getLong("ts"),
+                symbol,
+                startMs,
+                endMs);
+    }
+
+    /**
+     * 1M chart: aggregate {@code ohlc_1h} into 8-hour buckets.
+     * Avoids stale holes in the {@code ohlc_8h} CAGG when underlying 1m rows
+     * expired before the aggregate was materialized.
+     */
+    public List<OhlcDto> findEightHourBucketsFrom1h(String symbol, long cutoffMs) {
+        String sql = """
+                SELECT CAST(EXTRACT(EPOCH FROM time_bucket(INTERVAL '8 hours', bucket)) * 1000 AS BIGINT) AS ts,
+                       first(open, bucket) AS open,
+                       max(high) AS high,
+                       min(low) AS low,
+                       last(close, bucket) AS close,
+                       sum(volume) AS volume
+                FROM ohlc_1h
+                WHERE symbol = ?
+                  AND bucket >= ?
+                GROUP BY time_bucket(INTERVAL '8 hours', bucket)
+                HAVING COUNT(*) >= 4
+                ORDER BY ts ASC
+                """;
+
+        return jdbcTemplate.query(
+                sql,
+                (rs, rowNum) -> new OhlcDto(
+                        rs.getLong("ts"),
+                        rs.getBigDecimal("open"),
+                        rs.getBigDecimal("high"),
+                        rs.getBigDecimal("low"),
+                        rs.getBigDecimal("close"),
+                        rs.getBigDecimal("volume")),
+                symbol,
+                Timestamp.from(Instant.ofEpochMilli(cutoffMs)));
+    }
+
     /**
      * 1D chart: aggregate live {@code ohlc_1m} rows into 30-minute buckets.
      * Avoids the {@code ohlc_30m} CAGG when it was materialized from hourly stubs

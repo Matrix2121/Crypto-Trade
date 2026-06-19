@@ -171,9 +171,26 @@
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) 180px minmax(96px, auto) auto;
+  grid-template-columns:
+    minmax(0, 1.25fr)
+    minmax(96px, 0.85fr)
+    minmax(96px, 0.85fr)
+    minmax(108px, 0.9fr)
+    auto;
   column-gap: 0.75rem;
   row-gap: 0.55rem;
+}
+
+.portfolio-holding-header {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  padding: 0 0.9rem 0.15rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
 }
 
 .portfolio-holding-row {
@@ -187,8 +204,30 @@
   background: var(--color-bg-page);
 }
 
-.portfolio-holding-usd .portfolio-holding-value {
-  grid-column: 3;
+.portfolio-holding-usd .portfolio-holding-if-sold {
+  grid-column: auto;
+}
+
+.portfolio-holding-spent,
+.portfolio-holding-if-sold,
+.portfolio-holding-pnl {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.portfolio-holding-metric-label {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.portfolio-holding-metric-value {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-primary);
+  white-space: nowrap;
 }
 
 .portfolio-holding-main {
@@ -216,24 +255,35 @@
   font-variant-numeric: tabular-nums;
 }
 
-.portfolio-holding-price {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  min-width: 0;
-}
-
-.portfolio-holding-price-label {
-  font-size: 0.75rem;
-  color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.portfolio-holding-price-value {
+.portfolio-holding-pnl {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  color: var(--color-text-soft);
+}
+
+.portfolio-holding-pnl--positive .portfolio-holding-pnl-flash,
+.portfolio-holding-pnl--positive .portfolio-holding-pnl-flash .price-flash {
+  color: var(--color-buy-text, #22c55e);
+}
+
+.portfolio-holding-pnl--negative .portfolio-holding-pnl-flash,
+.portfolio-holding-pnl--negative .portfolio-holding-pnl-flash .price-flash {
+  color: var(--color-sell-text, #ef4444);
+}
+
+.portfolio-holding-pnl--neutral .portfolio-holding-pnl-flash,
+.portfolio-holding-pnl--neutral .portfolio-holding-pnl-flash .price-flash {
+  color: var(--color-text-muted);
+}
+
+.portfolio-holding-pnl-flash {
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+@media (min-width: 769px) {
+  .portfolio-holding-metric-label {
+    display: none;
+  }
 }
 
 .portfolio-holding-value {
@@ -376,8 +426,18 @@
     gap: 0.55rem;
   }
 
-  .portfolio-holding-usd .portfolio-holding-value {
+  .portfolio-holding-usd .portfolio-holding-if-sold {
     grid-column: auto;
+  }
+
+  .portfolio-holding-header {
+    display: none;
+  }
+
+  .portfolio-holding-spent .portfolio-holding-metric-label,
+  .portfolio-holding-if-sold .portfolio-holding-metric-label,
+  .portfolio-holding-pnl .portfolio-holding-metric-label {
+    display: block;
   }
 
   .portfolio-sell-one-btn {
@@ -438,6 +498,18 @@
 .portfolio-chart-card h3 {
   margin: 0 0 0.5rem;
   font-size: 0.9rem;
+}
+
+.portfolio-allocation-total {
+  margin-top: 0.35rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid var(--color-border-subtle);
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+}
+
+.portfolio-allocation-slice {
+  transition: fill-opacity 150ms ease;
 }
 
 @media (max-width: 768px) {
