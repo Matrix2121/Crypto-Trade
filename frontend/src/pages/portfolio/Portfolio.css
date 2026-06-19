@@ -512,6 +512,75 @@
   transition: fill-opacity 150ms ease;
 }
 
+.portfolio-allocation-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.portfolio-allocation-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.portfolio-allocation-legend-item {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.45rem 0.55rem;
+  padding: 0.3rem 0.15rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 150ms ease, opacity 150ms ease;
+}
+
+.portfolio-allocation-legend-item:hover,
+.portfolio-allocation-legend-item--active {
+  background: color-mix(in srgb, var(--color-accent-blue) 10%, transparent);
+}
+
+.portfolio-allocation-legend-item--dimmed {
+  opacity: 0.45;
+}
+
+.portfolio-allocation-legend-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.portfolio-allocation-legend-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.portfolio-allocation-legend-value {
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-soft);
+  white-space: nowrap;
+}
+
+.portfolio-allocation-legend-percent {
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  min-width: 2.75rem;
+  text-align: right;
+}
+
 @media (max-width: 768px) {
   .portfolio-analytics-summary,
   .portfolio-charts-row {

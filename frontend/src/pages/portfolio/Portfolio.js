@@ -182,35 +182,63 @@ function AssetAllocationChart({ slices, totalBalance, colors }) {
   }
 
   return (
-    <ResponsiveContainer width="100%" height={200}>
-      <PieChart>
-        <Pie
-          data={slices}
-          dataKey="valueUsd"
-          nameKey="label"
-          innerRadius={50}
-          outerRadius={80}
-          paddingAngle={slices.length > 1 ? 2 : 0}
-          stroke="none"
-          activeIndex={activeIndex ?? undefined}
-          activeShape={AllocationActiveShape}
-          onMouseEnter={(_, index) => setActiveIndex(index)}
-          onMouseLeave={() => setActiveIndex(null)}
-          style={{ cursor: "pointer" }}
-        >
-          {slices.map((slice, i) => (
-            <Cell
-              key={slice.label}
-              fill={colors[i % colors.length]}
-              stroke="none"
-              fillOpacity={activeIndex == null || activeIndex === i ? 1 : 0.35}
-              className="portfolio-allocation-slice"
+    <div className="portfolio-allocation-wrap">
+      <ResponsiveContainer width="100%" height={170}>
+        <PieChart>
+          <Pie
+            data={slices}
+            dataKey="valueUsd"
+            nameKey="label"
+            innerRadius={46}
+            outerRadius={72}
+            paddingAngle={slices.length > 1 ? 2 : 0}
+            stroke="none"
+            activeIndex={activeIndex ?? undefined}
+            activeShape={AllocationActiveShape}
+            onMouseEnter={(_, index) => setActiveIndex(index)}
+            onMouseLeave={() => setActiveIndex(null)}
+            style={{ cursor: "pointer" }}
+          >
+            {slices.map((slice, i) => (
+              <Cell
+                key={slice.label}
+                fill={colors[i % colors.length]}
+                stroke="none"
+                fillOpacity={activeIndex == null || activeIndex === i ? 1 : 0.35}
+                className="portfolio-allocation-slice"
+              />
+            ))}
+          </Pie>
+          <Tooltip content={<AllocationTooltip totalPortfolio={totalBalance} />} />
+        </PieChart>
+      </ResponsiveContainer>
+
+      <ul className="portfolio-allocation-legend" aria-label="Asset allocation legend">
+        {slices.map((slice, i) => (
+          <li
+            key={slice.label}
+            className={`portfolio-allocation-legend-item${
+              activeIndex === i ? " portfolio-allocation-legend-item--active" : ""
+            }${activeIndex != null && activeIndex !== i ? " portfolio-allocation-legend-item--dimmed" : ""}`}
+            onMouseEnter={() => setActiveIndex(i)}
+            onMouseLeave={() => setActiveIndex(null)}
+          >
+            <span
+              className="portfolio-allocation-legend-swatch"
+              style={{ backgroundColor: colors[i % colors.length] }}
+              aria-hidden="true"
             />
-          ))}
-        </Pie>
-        <Tooltip content={<AllocationTooltip totalPortfolio={totalBalance} />} />
-      </PieChart>
-    </ResponsiveContainer>
+            <span className="portfolio-allocation-legend-label">{slice.label}</span>
+            <span className="portfolio-allocation-legend-value">
+              {formatBalanceUsd(slice.valueUsd)}
+            </span>
+            <span className="portfolio-allocation-legend-percent">
+              {slice.percent.toFixed(1)}%
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

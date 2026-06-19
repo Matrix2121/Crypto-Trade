@@ -158,12 +158,24 @@ function formatCandlePeriod(startTs, periodMs, range) {
       const dayLabel = TIME_AXIS_RANGES.has(range)
         ? ""
         : `${formatDateEndpoint(start, false)}, `;
-      return `${dayLabel}${formatTimeEndpoint(start, periodMs)} – ${formatTimeEndpoint(end, periodMs)}`;
+      return `${dayLabel}${formatTimeEndpoint(
+        start,
+        periodMs,
+      )} – ${formatTimeEndpoint(end, periodMs)}`;
     }
-    return `${formatDateEndpoint(start, false)} ${formatTimeEndpoint(start, periodMs)} – ${formatDateEndpoint(end, false)} ${formatTimeEndpoint(end, periodMs)}`;
+    return `${formatDateEndpoint(start, false)} ${formatTimeEndpoint(
+      start,
+      periodMs,
+    )} – ${formatDateEndpoint(end, false)} ${formatTimeEndpoint(
+      end,
+      periodMs,
+    )}`;
   }
 
-  return `${formatDateEndpoint(start, includeYear)} – ${formatDateEndpoint(end, includeYear)}`;
+  return `${formatDateEndpoint(start, includeYear)} – ${formatDateEndpoint(
+    end,
+    includeYear,
+  )}`;
 }
 
 // ─── Price formatting ─────────────────────────────────────────────────────────
@@ -195,7 +207,9 @@ function formatPeriodChange(absoluteChange, percentChange) {
   )
     return "—";
   const sign = absoluteChange >= 0 ? "+" : "";
-  return `${sign}${formatQuote(absoluteChange)} (${sign}${percentChange.toFixed(2)}%)`;
+  return `${sign}${formatQuote(absoluteChange)} (${sign}${percentChange.toFixed(
+    2,
+  )}%)`;
 }
 
 function formatCompactUsd(value) {
@@ -247,7 +261,6 @@ function aggregateTicksToOhlc(ticks, windowMs) {
   }
   return Object.values(windows).sort((a, b) => a.timestamp - b.timestamp);
 }
-
 
 // ─── Candlestick custom shape ─────────────────────────────────────────────────
 
@@ -389,18 +402,59 @@ function renderForecastTooltipBody(point) {
   const rows = [];
 
   const ciRows = [
-    ["future-target", "Model hourly CI", FORECAST_CI_KEYS[FUTURE], "isFutureTarget"],
-    ["hist-future", "Past model hourly CI", HISTORICAL_CI_KEYS[FUTURE], "isHistoricalFutureTarget"],
-    ["hourly", "Model hourly CI", FORECAST_CI_KEYS[HOURLY], "isHourlyFutureTarget"],
-    ["hist-hourly", "Past model hourly CI", HISTORICAL_CI_KEYS[HOURLY], "isHistoricalHourlyTarget"],
+    [
+      "future-target",
+      "Model hourly CI",
+      FORECAST_CI_KEYS[FUTURE],
+      "isFutureTarget",
+    ],
+    [
+      "hist-future",
+      "Past model hourly CI",
+      HISTORICAL_CI_KEYS[FUTURE],
+      "isHistoricalFutureTarget",
+    ],
+    [
+      "hourly",
+      "Model hourly CI",
+      FORECAST_CI_KEYS[HOURLY],
+      "isHourlyFutureTarget",
+    ],
+    [
+      "hist-hourly",
+      "Past model hourly CI",
+      HISTORICAL_CI_KEYS[HOURLY],
+      "isHistoricalHourlyTarget",
+    ],
     ["daily", "Model daily CI", FORECAST_CI_KEYS[DAILY], "isDailyFutureTarget"],
-    ["hist-daily", "Past model daily CI", HISTORICAL_CI_KEYS[DAILY], "isHistoricalDailyTarget"],
-    ["context-aware", "Context-aware CI", FORECAST_CI_KEYS[CONTEXT_AWARE], "isContextAwareFutureTarget"],
-    ["hist-context-aware", "Past context-aware CI", HISTORICAL_CI_KEYS[CONTEXT_AWARE], "isHistoricalContextAwareTarget"],
+    [
+      "hist-daily",
+      "Past model daily CI",
+      HISTORICAL_CI_KEYS[DAILY],
+      "isHistoricalDailyTarget",
+    ],
+    [
+      "context-aware",
+      "Context-aware CI",
+      FORECAST_CI_KEYS[CONTEXT_AWARE],
+      "isContextAwareFutureTarget",
+    ],
+    [
+      "hist-context-aware",
+      "Past context-aware CI",
+      HISTORICAL_CI_KEYS[CONTEXT_AWARE],
+      "isHistoricalContextAwareTarget",
+    ],
   ];
 
   for (const [key, label, ciKeys, requiredFlag] of ciRows) {
-    const row = renderForecastCiTooltipRow(key, label, point, ciKeys, requiredFlag);
+    const row = renderForecastCiTooltipRow(
+      key,
+      label,
+      point,
+      ciKeys,
+      requiredFlag,
+    );
     if (row) rows.push(row);
   }
 
@@ -565,10 +619,18 @@ function computePeriodStats(displayData, isDisplayOhlc) {
   return { periodHigh, periodLow, absoluteChange, percentChange };
 }
 
-function buildBandPolygon(bandPoints, ciLowKey, ciHighKey, xAxis, yAxis, offset) {
+function buildBandPolygon(
+  bandPoints,
+  ciLowKey,
+  ciHighKey,
+  xAxis,
+  yAxis,
+  offset,
+) {
   const validPoints = (bandPoints || []).filter(
     (point) =>
-      typeof point[ciLowKey] === "number" && typeof point[ciHighKey] === "number",
+      typeof point[ciLowKey] === "number" &&
+      typeof point[ciHighKey] === "number",
   );
   if (validPoints.length < 2) return null;
 
@@ -599,7 +661,12 @@ function ForecastCiBandFill({
 }) {
   const xAxis = xAxisMap?.[Object.keys(xAxisMap ?? {})[0]];
   const yAxis = yAxisMap?.[Object.keys(yAxisMap ?? {})[0]];
-  if (!xAxis?.scale || !yAxis?.scale || !lineConfigs?.length || !chartData?.length) {
+  if (
+    !xAxis?.scale ||
+    !yAxis?.scale ||
+    !lineConfigs?.length ||
+    !chartData?.length
+  ) {
     return null;
   }
 
@@ -607,14 +674,20 @@ function ForecastCiBandFill({
   for (const cfg of lineConfigs) {
     if (cfg.type !== "band") continue;
 
-    const { ciLowKey, ciHighKey, stroke, fillOpacity = 0.2, bandSegments } = cfg;
+    const {
+      ciLowKey,
+      ciHighKey,
+      stroke,
+      fillOpacity = 0.2,
+      bandSegments,
+    } = cfg;
     const segmentGroups = bandSegments?.length
       ? bandSegments
       : [
           (chartData || []).filter(
             (point) =>
-              typeof point[ciLowKey] === "number"
-              && typeof point[ciHighKey] === "number",
+              typeof point[ciLowKey] === "number" &&
+              typeof point[ciHighKey] === "number",
           ),
         ];
 
@@ -740,10 +813,10 @@ function PredictionForecastDots({
   const xAxis = xAxisMap?.[Object.keys(xAxisMap ?? {})[0]];
   const yAxis = yAxisMap?.[Object.keys(yAxisMap ?? {})[0]];
   if (
-    !xAxis?.scale
-    || !yAxis?.scale
-    || !lineConfigs?.length
-    || !chartData?.length
+    !xAxis?.scale ||
+    !yAxis?.scale ||
+    !lineConfigs?.length ||
+    !chartData?.length
   ) {
     return null;
   }
@@ -885,7 +958,12 @@ ChartCandleView.propTypes = {
 
 const PRICE_LINE_STROKE = "var(--color-accent-blue)";
 
-function ChartPriceSeries({ chartType, lineMode, hasSpreadData, emphasizePriceLine }) {
+function ChartPriceSeries({
+  chartType,
+  lineMode,
+  hasSpreadData,
+  emphasizePriceLine,
+}) {
   const showSpread = lineMode === "spread" && hasSpreadData;
   const dataKey = chartType === "OHLC" ? "close" : "price";
   const seriesName = chartType === "OHLC" ? "Close" : "Price";
@@ -1113,7 +1191,9 @@ function StatsDashboard({
             value={formatChartPrice(avgEntryPrice)}
             subValue={
               currentPrice != null
-                ? `${((currentPrice / avgEntryPrice - 1) * 100).toFixed(2)}% vs current`
+                ? `${((currentPrice / avgEntryPrice - 1) * 100).toFixed(
+                    2,
+                  )}% vs current`
                 : undefined
             }
           />
@@ -1538,7 +1618,9 @@ function OrderPanel({
         >
           <span className="trade-mode-indicator" aria-hidden="true" />
           <label
-            className={`trade-mode-option${tradeMode === "buy" ? " active" : ""}`}
+            className={`trade-mode-option${
+              tradeMode === "buy" ? " active" : ""
+            }`}
           >
             <input
               type="radio"
@@ -1553,7 +1635,9 @@ function OrderPanel({
             <span className="trade-mode-label">Buy</span>
           </label>
           <label
-            className={`trade-mode-option${tradeMode === "sell" ? " active" : ""}`}
+            className={`trade-mode-option${
+              tradeMode === "sell" ? " active" : ""
+            }`}
           >
             <input
               type="radio"
@@ -1570,7 +1654,9 @@ function OrderPanel({
         </div>
 
         <div
-          className={`trade-form trade-form--${tradeMode}${hasActiveError ? " trade-form--error" : ""}`}
+          className={`trade-form trade-form--${tradeMode}${
+            hasActiveError ? " trade-form--error" : ""
+          }`}
         >
           <label className="trade-field" htmlFor="trade-amount">
             <span className="trade-field-label">Amount ({baseAsset})</span>
@@ -1590,7 +1676,9 @@ function OrderPanel({
                   type="button"
                   className="trade-max-btn"
                   onClick={handleMaxCrypto}
-                  aria-label={`Use full balance of ${formatCryptoAmount(ownedAmount)} ${baseAsset}`}
+                  aria-label={`Use full balance of ${formatCryptoAmount(
+                    ownedAmount,
+                  )} ${baseAsset}`}
                 >
                   MAX
                 </button>
@@ -1618,7 +1706,9 @@ function OrderPanel({
                   type="button"
                   className="trade-max-btn"
                   onClick={handleMaxUsd}
-                  aria-label={`Use full USD balance of ${formatBalanceUsd(usdBalance)}`}
+                  aria-label={`Use full USD balance of ${formatBalanceUsd(
+                    usdBalance,
+                  )}`}
                 >
                   MAX
                 </button>
@@ -1696,7 +1786,8 @@ const CryptoDetails = () => {
   const [chartMode, setChartMode] = useState("line"); // 'line' | 'candle'
   const [lineMode, setLineMode] = useState("mid"); // 'mid'  | 'spread'
   const [showPredictions, setShowPredictions] = useState(false);
-  const [showHistoricalPredictions, setShowHistoricalPredictions] = useState(false);
+  const [showHistoricalPredictions, setShowHistoricalPredictions] =
+    useState(false);
 
   const symbol = String(cryptoCode).replace("-", "/").toUpperCase();
   const baseAsset = getBaseAsset(symbol).toUpperCase();
@@ -1890,7 +1981,7 @@ const CryptoDetails = () => {
   }, [transactions, symbol]);
 
   const currentMidPrice =
-    bid != null && ask != null ? (bid + ask) / 2 : (bid ?? ask);
+    bid != null && ask != null ? (bid + ask) / 2 : bid ?? ask;
 
   const chartXDomain = useMemo(() => {
     if (!displayData.length) return ["dataMin", "dataMax"];
@@ -2031,7 +2122,9 @@ const CryptoDetails = () => {
                         key={value}
                         type="button"
                         role="tab"
-                        className={`timeframe-btn${range === value ? " active" : ""}`}
+                        className={`timeframe-btn${
+                          range === value ? " active" : ""
+                        }`}
                         onClick={() => setRange(value)}
                         aria-selected={range === value}
                       >
@@ -2047,14 +2140,18 @@ const CryptoDetails = () => {
                       <legend className="chart-mode-legend">Line mode</legend>
                       <button
                         type="button"
-                        className={`chart-mode-btn${lineMode === "mid" ? " active" : ""}`}
+                        className={`chart-mode-btn${
+                          lineMode === "mid" ? " active" : ""
+                        }`}
                         onClick={() => setLineMode("mid")}
                       >
                         Mid
                       </button>
                       <button
                         type="button"
-                        className={`chart-mode-btn spread-btn${lineMode === "spread" ? " active" : ""}${hasSpreadData ? "" : " disabled"}`}
+                        className={`chart-mode-btn spread-btn${
+                          lineMode === "spread" ? " active" : ""
+                        }${hasSpreadData ? "" : " disabled"}`}
                         onClick={() => {
                           if (hasSpreadData) setLineMode("spread");
                         }}
@@ -2074,14 +2171,18 @@ const CryptoDetails = () => {
                     <legend className="chart-mode-legend">Chart type</legend>
                     <button
                       type="button"
-                      className={`chart-mode-btn${chartMode === "line" ? " active" : ""}`}
+                      className={`chart-mode-btn${
+                        chartMode === "line" ? " active" : ""
+                      }`}
                       onClick={() => setChartMode("line")}
                     >
                       Line
                     </button>
                     <button
                       type="button"
-                      className={`chart-mode-btn${chartMode === "candle" ? " active" : ""}`}
+                      className={`chart-mode-btn${
+                        chartMode === "candle" ? " active" : ""
+                      }`}
                       onClick={() => setChartMode("candle")}
                     >
                       Candle
@@ -2105,7 +2206,9 @@ const CryptoDetails = () => {
                         key={value}
                         type="button"
                         role="tab"
-                        className={`timeframe-btn${range === value ? " active" : ""}`}
+                        className={`timeframe-btn${
+                          range === value ? " active" : ""
+                        }`}
                         onClick={() => setRange(value)}
                         aria-selected={range === value}
                       >
@@ -2149,7 +2252,9 @@ const CryptoDetails = () => {
                         {isPredictionChartRange(range) && (
                           <button
                             type="button"
-                            className={`btn-predict-history${showHistoricalPredictions ? " active" : ""}`}
+                            className={`btn-predict-history${
+                              showHistoricalPredictions ? " active" : ""
+                            }`}
                             onClick={() =>
                               setShowHistoricalPredictions((v) => !v)
                             }
@@ -2163,7 +2268,9 @@ const CryptoDetails = () => {
                     )}
                     <button
                       type="button"
-                      className={`btn-ai-predict${showPredictions ? " active" : ""}`}
+                      className={`btn-ai-predict${
+                        showPredictions ? " active" : ""
+                      }`}
                       onClick={handlePredictToggle}
                       disabled={predictionLoading}
                       aria-pressed={showPredictions}
@@ -2207,7 +2314,9 @@ const CryptoDetails = () => {
                   predictionLineConfigs={
                     showPredictions ? predictionLineConfigs : []
                   }
-                  emphasizePriceLine={showPredictions && showHistoricalPredictions}
+                  emphasizePriceLine={
+                    showPredictions && showHistoricalPredictions
+                  }
                 />
               )}
 
