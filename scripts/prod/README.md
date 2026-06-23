@@ -225,6 +225,7 @@ Requires `ml-service/.env` with `DB_PORT` matching your database.
 
 | Issue | Fix |
 |-------|-----|
+| Login/API hangs after backend redeploy (frontend older than backend in `docker ps`) | `docker compose restart frontend` or rebuild frontend; nginx caches backend IP until restart (fixed in `frontend/nginx.conf` with Docker DNS resolver) |
 | `TimescaleDB extension not found` | Rebuild db: `docker compose build db && docker compose up -d db` |
 | `ohlc_1m does not exist` | Run `./scripts/prod/migrate_timescaledb.sh` (no `--sync`) first |
 | Charts empty on 1Y/ALL after sync | Check `ohlc_1d` counts; re-run sync with `--force` |
