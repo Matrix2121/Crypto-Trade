@@ -1,3 +1,5 @@
+**Starting guide**
+
 0. Install Docker Desktop
 
 1. Clone the GitHub repo from a terminal:
@@ -50,3 +52,7 @@ docker compose up -d --build
 
 10. (Optional) Download market data from Kraken:
 .\scripts\sync_kraken_history.ps1 -Wipe -ConfirmWipe
+
+If docker compose up fails with "address already in use" on port 5432, set PUBLISHED_DB_PORT=5434 (or another free port) in .env and run docker compose up -d again.
+
+After successful starting of the containers, website should be availabel at "http://localhost/"
