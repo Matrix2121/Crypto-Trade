@@ -8,7 +8,7 @@ cd c:\dev\VSCode_Projects\temp\Crypto-Trade
 Copy-Item .env.example .env
 
 3. Replace .env contents with the following contents:
-# ── Database (Docker Compose) ──────────────────────────────────────────────
+# Database (Docker Compose)
 DB_USER=postgres
 DB_PASSWORD=root
 DB_NAME=postgres
@@ -16,18 +16,18 @@ DB_HOST=db
 DB_PORT=5432
 PUBLISHED_DB_PORT=5432
 
-# ── Backend ──────────────────────────────────────────────────────────────────
+# Backend
 JWT_SECRET=local-dev-jwt-secret-change-me-32chars-minimum
 GOOGLE_CLIENT_ID=REPLACE_WITH_YOUR_GOOGLE_OAUTH_CLIENT_ID.apps.googleusercontent.com
 ML_SERVICE_URL=http://ml-service:8000
 
-# ── ML service ───────────────────────────────────────────────────────────────
+# ML service
 LLM_PROVIDER=mock
 GEMINI_API_KEY=
 PREDICTION_ASSETS=BTC/USD,ETH/USD,SOL/USD,LINK/USD
 MIN_RAG_EVENTS=500
 
-# ── Frontend (baked into Docker build) ───────────────────────────────────────
+# Frontend (baked into Docker build) 
 # Leave empty so API calls use relative /api/... paths through nginx
 REACT_APP_API_URL=
 REACT_APP_GOOGLE_CLIENT_ID=REPLACE_WITH_YOUR_GOOGLE_OAUTH_CLIENT_ID.apps.googleusercontent.com
