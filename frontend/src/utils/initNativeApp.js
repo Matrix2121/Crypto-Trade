@@ -14,6 +14,6 @@ export async function initNativeApp() {
 
   GoogleAuth.initialize({
     scopes: ["profile", "email"],
-    grantOfflineAccess: true,
+    grantOfflineAccess: false,
   });
 }

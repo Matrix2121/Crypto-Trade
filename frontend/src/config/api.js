@@ -1,6 +1,6 @@
 import { Capacitor } from "@capacitor/core";
 
-const PROD_API_BASE = "https://noqtrade.com";
+const PROD_API_BASE = "http://noqtrade.com";
 const configuredBase = (process.env.REACT_APP_API_URL || "").replace(/\/$/, "");
 
 export function getApiBaseUrl() {

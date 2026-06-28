@@ -1,11 +1,9 @@
 import type { CapacitorConfig } from "@capacitor/cli";
 
-// Web client — backend verifies ID tokens against this audience.
+// Web client ID — used for requestIdToken() and backend verification.
+// The Android OAuth client in Google Cloud (package + SHA-1) is separate; do NOT put it here.
 const WEB_CLIENT_ID =
   "569243080322-gcbva79oge5qrbqog892f3uc3554o9qk.apps.googleusercontent.com";
-// Android client — package com.noqtrade.app + debug/release SHA-1 in Google Cloud.
-const ANDROID_CLIENT_ID =
-  "569243080322-5v3ov5g4cv8grl26tcrmqajvdhqal7pm.apps.googleusercontent.com";
 
 const config: CapacitorConfig = {
   appId: "com.noqtrade.app",
@@ -20,7 +18,6 @@ const config: CapacitorConfig = {
   plugins: {
     GoogleAuth: {
       scopes: ["profile", "email"],
-      androidClientId: ANDROID_CLIENT_ID,
       serverClientId: WEB_CLIENT_ID,
       forceCodeForRefreshToken: false,
     },
