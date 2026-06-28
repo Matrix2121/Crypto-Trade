@@ -4,4 +4,5 @@
     <string name="title_activity_main">NoqTrade</string>
     <string name="package_name">com.noqtrade.app</string>
     <string name="custom_url_scheme">com.noqtrade.app</string>
+    <string name="server_client_id">569243080322-gcbva79oge5qrbqog892f3uc3554o9qk.apps.googleusercontent.com</string>
 </resources>

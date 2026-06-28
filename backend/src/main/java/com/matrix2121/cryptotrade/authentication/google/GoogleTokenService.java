@@ -2,10 +2,12 @@ package com.matrix2121.cryptotrade.authentication.google;
 
 import java.io.IOException;
 import java.security.GeneralSecurityException;
-import java.util.Collections;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken.Payload;
@@ -19,6 +21,9 @@ public class GoogleTokenService {
 
     @Value("${google.client.id}")
     private String clientId;
+
+    @Value("${google.android.client.id:}")
+    private String androidClientId;
 
     public Payload verifyGoogleToken(String token) {
         try {
@@ -34,7 +39,7 @@ public class GoogleTokenService {
         GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(
                 transport,
                 GsonFactory.getDefaultInstance())
-                .setAudience(Collections.singletonList(clientId))
+                .setAudience(acceptedAudiences())
                 .build();
 
         GoogleIdToken idToken = verifier.verify(token);
@@ -43,5 +48,14 @@ public class GoogleTokenService {
         }
 
         return idToken.getPayload();
+    }
+
+    private List<String> acceptedAudiences() {
+        List<String> audiences = new ArrayList<>();
+        audiences.add(clientId);
+        if (StringUtils.hasText(androidClientId)) {
+            audiences.add(androidClientId);
+        }
+        return audiences;
     }
 }

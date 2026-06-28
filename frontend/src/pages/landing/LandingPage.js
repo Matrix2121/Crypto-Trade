@@ -39,7 +39,7 @@ const LandingPage = () => {
       await finishLogin(idToken);
     } catch (error) {
       console.error("Native Google login failed:", error);
-      alert("Login failed");
+      alert(error?.message || "Login failed");
     } finally {
       setNativeSigningIn(false);
     }

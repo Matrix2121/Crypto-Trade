@@ -13,8 +13,7 @@ export async function initNativeApp() {
   }
 
   GoogleAuth.initialize({
-    clientId: process.env.REACT_APP_GOOGLE_CLIENT_ID,
     scopes: ["profile", "email"],
-    grantOfflineAccess: false,
+    grantOfflineAccess: true,
   });
 }
